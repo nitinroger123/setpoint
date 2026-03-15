@@ -293,6 +293,76 @@ def submit_score(
     return compute_live_standings(session_id, sb)
 
 
+@router.post("/sessions/{session_id}/complete")
+def complete_session(session_id: str, _: None = Depends(require_director)):
+    """
+    Finalize a live session:
+      1. Compute final standings from round_games + round_assignments
+      2. Write session_standings (used by leaderboard and player profiles)
+      3. Write game_results (used by the historical round-by-round view)
+      4. Mark session as completed
+    Can be called again to re-finalize if scores were corrected.
+    """
+    sb = get_supabase()
+
+    standings = compute_live_standings(session_id, sb)
+    if not standings:
+        raise HTTPException(status_code=400, detail="No scored games found — cannot complete session.")
+
+    final_stats = {s["id"]: s for s in standings}
+
+    # Write session_standings
+    sb.table("session_standings").delete().eq("session_id", session_id).execute()
+    sb.table("session_standings").insert([
+        {"session_id": session_id, "player_id": s["id"],
+         "total_wins": s["wins"], "total_diff": s["diff"], "place": s["place"]}
+        for s in standings
+    ]).execute()
+
+    # Build team -> player lookup per round from round_assignments
+    assignments = sb.table("round_assignments").select("round_number, team, player_id") \
+        .eq("session_id", session_id).execute().data
+    team_players: dict = {}
+    for a in assignments:
+        key = (a["round_number"], a["team"])
+        if key not in team_players:
+            team_players[key] = []
+        team_players[key].append(a["player_id"])
+
+    # Write game_results (one row per player per game played, with denormalized totals)
+    games = sb.table("round_games").select("*").eq("session_id", session_id).execute().data
+    completed_games = [g for g in games if g["score_a"] is not None and g["score_b"] is not None]
+
+    sb.table("game_results").delete().eq("session_id", session_id).execute()
+    records = []
+    for g in completed_games:
+        rn  = g["round_number"]
+        diff = g["score_a"] - g["score_b"]
+        for team in (g["team_a"], g["team_b"]):
+            player_diff = diff if team == g["team_a"] else -diff
+            for player_id in team_players.get((rn, team), []):
+                s = final_stats.get(player_id, {"wins": 0, "diff": 0, "place": 99})
+                records.append({
+                    "session_id": session_id, "player_id": player_id,
+                    "round_number": rn, "game_number": g["game_number"],
+                    "team": team, "point_diff": player_diff,
+                    "total_wins": s["wins"], "total_diff": s["diff"], "place": s["place"],
+                })
+    if records:
+        sb.table("game_results").insert(records).execute()
+
+    sb.table("sessions").update({"status": "completed"}).eq("id", session_id).execute()
+    return {"ok": True, "players_finalized": len(standings)}
+
+
+@router.delete("/sessions/{session_id}")
+def delete_session(session_id: str, _: None = Depends(require_director)):
+    """Delete a session and all associated data (cascades to roster, assignments, games, standings)."""
+    sb = get_supabase()
+    sb.table("sessions").delete().eq("id", session_id).execute()
+    return {"ok": True}
+
+
 @router.delete("/sessions/{session_id}/rounds/{round_number}/games/{game_number}/score")
 def clear_score(
     session_id: str, round_number: int, game_number: int,

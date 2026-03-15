@@ -25,18 +25,11 @@ def get_player_profile(player_id: str):
     if not player.data:
         raise HTTPException(status_code=404, detail="Player not found")
 
-    # Fetch one row per session using the round_number=1, game_number=1 anchor.
-    # Each player has 8 game_result rows per session (one per game), but
-    # total_wins/total_diff/place are denormalized and identical across all 8.
-    # Filtering to a single anchor row avoids hitting the Supabase 1000-row limit
-    # and keeps the query fast regardless of how many sessions exist.
-    # The nested select traverses two FK joins in one query:
-    #   game_results -> sessions -> tournament_series
-    rows = sb.table("game_results") \
+    # Use session_standings for one clean row per session — no anchor hack needed.
+    # FK join traversal: session_standings -> sessions -> tournament_series
+    rows = sb.table("session_standings") \
         .select("session_id, total_wins, total_diff, place, sessions(date, series_id, tournament_series(name))") \
         .eq("player_id", player_id) \
-        .eq("round_number", 1) \
-        .eq("game_number", 1) \
         .order("sessions(date)", desc=True) \
         .execute().data
 

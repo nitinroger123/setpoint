@@ -22,13 +22,11 @@ def get_leaderboard(series_id: str):
     if not session_ids:
         return []
 
-    # Fetch exactly one row per player per session (round 1, game 1)
-    # This avoids the Supabase 1000-row default limit caused by fetching all 8 game rows per player
-    per_session = sb.table("game_results") \
+    # Use session_standings for one clean row per player per session.
+    # This replaces the old game_results round=1/game=1 anchor hack.
+    per_session = sb.table("session_standings") \
         .select("player_id, session_id, total_wins, total_diff, place, players(name)") \
         .in_("session_id", session_ids) \
-        .eq("round_number", 1) \
-        .eq("game_number", 1) \
         .execute().data
 
     # Aggregate per player

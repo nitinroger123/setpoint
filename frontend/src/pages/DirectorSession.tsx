@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import api from '../lib/api'
 import directorApi from '../lib/directorApi'
 
@@ -219,8 +219,11 @@ export default function DirectorSession() {
   const [addPlayerId, setAddPlayerId] = useState('')
   const [assigning, setAssigning] = useState<number | null>(null)
   const [activating, setActivating] = useState(false)
+  const [completing, setCompleting] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [activeRound, setActiveRound] = useState(1)
+  const navigate = useNavigate()
 
   async function reload() {
     const res = await directorApi.get(`/api/director/sessions/${id}`)
@@ -289,6 +292,34 @@ export default function DirectorSession() {
       setError(detail ?? 'Activation failed')
     } finally {
       setActivating(false)
+    }
+  }
+
+  async function completeSession() {
+    if (!session) return
+    if (!confirm('End this session and commit final standings to the leaderboard?')) return
+    setCompleting(true)
+    setError(null)
+    try {
+      await directorApi.post(`/api/director/sessions/${session.id}/complete`)
+      navigate('/director')
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setError(detail ?? 'Failed to complete session')
+      setCompleting(false)
+    }
+  }
+
+  async function deleteSession() {
+    if (!session) return
+    if (!confirm('Permanently delete this session and all associated data? This cannot be undone.')) return
+    setDeleting(true)
+    try {
+      await directorApi.delete(`/api/director/sessions/${session.id}`)
+      navigate('/director')
+    } catch {
+      setError('Failed to delete session')
+      setDeleting(false)
     }
   }
 
@@ -365,6 +396,22 @@ export default function DirectorSession() {
                 {activating ? 'Starting…' : 'Start Session'}
               </button>
             )}
+            {isActive && (
+              <button
+                onClick={completeSession}
+                disabled={completing}
+                className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
+              >
+                {completing ? 'Saving…' : 'End Session'}
+              </button>
+            )}
+            <button
+              onClick={deleteSession}
+              disabled={deleting}
+              className="text-red-400 hover:text-red-600 text-sm px-3 py-2 disabled:opacity-50"
+            >
+              {deleting ? 'Deleting…' : 'Delete'}
+            </button>
           </div>
         </div>
         {isDraft && !r1Assigned && (
