@@ -78,12 +78,18 @@ def get_session(session_id: str, _: None = Depends(require_director)):
             assignments[rn] = {"Aces": [], "Kings": [], "Queens": []}
         assignments[rn][team].append(row["players"])
 
-    round_games = sb.table("round_games").select("*") \
-        .eq("session_id", session_id) \
-        .order("round_number").order("game_number") \
-        .execute().data
+    try:
+        round_games = sb.table("round_games").select("*") \
+            .eq("session_id", session_id) \
+            .order("round_number").order("game_number") \
+            .execute().data
+    except Exception:
+        round_games = []
 
-    live_standings = compute_live_standings(session_id, sb)
+    try:
+        live_standings = compute_live_standings(session_id, sb)
+    except Exception:
+        live_standings = []
 
     return {
         **session.data,
