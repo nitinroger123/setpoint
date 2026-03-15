@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:docs.google.com)",
+      "Bash(uvx:*)",
+      "Bash(claude mcp:*)",
+      "Bash(kill:*)",
+      "Bash(ls:*)",
+      "Bash(python3 -m json.tool)",
+      "Bash(python3:*)",
+      "Bash(CREDENTIALS_PATH=/Users/nitinn/credentials.json TOKEN_PATH=/Users/nitinn/token.json uvx mcp-google-sheets@latest 2>&1 | head -10)",
+      "Bash(CREDENTIALS_PATH=/Users/nitinn/credentials.json TOKEN_PATH=/Users/nitinn/token.json uvx mcp-google-sheets@latest --help 2>&1 | head -20)",
+      "Bash(pip3 install:*)",
+      "Bash(git init:*)",
+      "Bash(git fetch:*)",
+      "Bash(mkdir:*)",
+      "Bash(cd:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git branch:*)",
+      "Bash(git remote:*)",
+      "Bash(git config:*)",
+      "Bash(security find-internet-password:*)",
+      "mcp__github__push_files",
+      "mcp__github__create_or_update_file"
+    ]
+  }
+}

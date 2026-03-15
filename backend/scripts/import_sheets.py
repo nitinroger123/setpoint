@@ -78,7 +78,7 @@ def main():
         if not rows:
             print(f"  Empty sheet, skipping.")
             continue
-        session_res = sb.table("sessions").insert({"date": date_str, "tournament_type": "reverse_coed_4s", "num_rounds": 4}).execute()
+        session_res = sb.table("sessions").insert({"date": date_str, "format_id": "revco-roundrobin-4s"}).execute()
         session_id = session_res.data[0]["id"]
         print(f"  Created session: {session_id}")
         player_results = parse_sheet(rows)

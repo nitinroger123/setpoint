@@ -1,11 +1,10 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional
 from datetime import date
 
 class SessionBase(BaseModel):
     date: date
-    tournament_type: str = "reverse_coed_4s"
-    num_rounds: int = 4
+    format_id: str = "revco-roundrobin-4s"
     notes: Optional[str] = None
 
 class SessionCreate(SessionBase):
