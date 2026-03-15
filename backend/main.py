@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers import players, sessions, games, series
 
-app = FastAPI(title="Setpoint API", version="0.1.0", redirect_slashes=False)
+app = FastAPI(title="Setpoint API", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,

@@ -25,7 +25,7 @@ export default function SessionDetail() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api.get(`/api/sessions/${id}`).then(res => {
+    api.get(`/api/sessions/${id}/`).then(res => {
       setSession(res.data)
       setLoading(false)
     })

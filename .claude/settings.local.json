@@ -25,7 +25,11 @@
       "mcp__github__create_or_update_file",
       "Bash(source:*)",
       "Bash(npm install:*)",
-      "Bash(npx tailwindcss:*)"
+      "Bash(npx tailwindcss:*)",
+      "Bash(curl:*)",
+      "Bash(railway whoami:*)",
+      "Bash(railway login:*)",
+      "Bash(railway variables:*)"
     ]
   }
 }

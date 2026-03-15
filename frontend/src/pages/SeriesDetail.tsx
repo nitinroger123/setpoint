@@ -38,8 +38,8 @@ export default function SeriesDetail() {
   useEffect(() => {
     if (!id) return
     Promise.all([
-      api.get(`/api/series/${id}`),
-      api.get(`/api/series/${id}/leaderboard`),
+      api.get(`/api/series/${id}/`),
+      api.get(`/api/series/${id}/leaderboard/`),
     ])
       .then(([seriesRes, lbRes]) => {
         setSeries(seriesRes.data)
