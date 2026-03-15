@@ -5,21 +5,33 @@ from collections import defaultdict
 
 router = APIRouter()
 
+# NOTE: /profile must be defined before /{player_id} so FastAPI doesn't
+# treat the literal string "profile" as a player ID and return a 404.
+
 @router.get("/", response_model=list[PlayerOut])
 def list_players():
+    # Returns all players sorted alphabetically. Used for admin/directory views.
     sb = get_supabase()
     res = sb.table("players").select("*").order("name").execute()
     return res.data
 
 @router.get("/{player_id}/profile")
 def get_player_profile(player_id: str):
+    # Returns a player's full profile: basic info, overall career stats, and
+    # a per-session history list. Used by the PlayerProfile page.
     sb = get_supabase()
 
     player = sb.table("players").select("*").eq("id", player_id).single().execute()
     if not player.data:
         raise HTTPException(status_code=404, detail="Player not found")
 
-    # One row per session (round 1, game 1 anchor)
+    # Fetch one row per session using the round_number=1, game_number=1 anchor.
+    # Each player has 8 game_result rows per session (one per game), but
+    # total_wins/total_diff/place are denormalized and identical across all 8.
+    # Filtering to a single anchor row avoids hitting the Supabase 1000-row limit
+    # and keeps the query fast regardless of how many sessions exist.
+    # The nested select traverses two FK joins in one query:
+    #   game_results -> sessions -> tournament_series
     rows = sb.table("game_results") \
         .select("session_id, total_wins, total_diff, place, sessions(date, series_id, tournament_series(name))") \
         .eq("player_id", player_id) \
@@ -28,8 +40,9 @@ def get_player_profile(player_id: str):
         .order("sessions(date)", desc=True) \
         .execute().data
 
-    # Build session history
     history = []
+    # Bucket stats by series_id so we can later support per-series breakdowns.
+    # Sessions not in any series fall under the "all" bucket.
     totals = defaultdict(lambda: {"sessions": 0, "wins": 0, "games": 0, "first": 0, "second": 0, "third": 0, "fourth": 0})
 
     for r in rows:
@@ -51,14 +64,14 @@ def get_player_profile(player_id: str):
         k = series_id or "all"
         totals[k]["sessions"] += 1
         totals[k]["wins"] += r["total_wins"] or 0
-        totals[k]["games"] += 8
+        totals[k]["games"] += 8  # always 8 games per session in revco-roundrobin-4s
         place = r["place"]
         if place == 1: totals[k]["first"] += 1
         elif place == 2: totals[k]["second"] += 1
         elif place == 3: totals[k]["third"] += 1
         elif place == 4: totals[k]["fourth"] += 1
 
-    # Overall stats (across all series)
+    # Collapse per-series buckets into a single overall stat block.
     overall = {"sessions": 0, "wins": 0, "games": 0, "first": 0, "second": 0, "third": 0, "fourth": 0}
     for v in totals.values():
         for key in overall:
@@ -73,6 +86,8 @@ def get_player_profile(player_id: str):
 
 @router.get("/{player_id}")
 def get_player(player_id: str):
+    # Returns a single player's basic info (name, phone, email).
+    # Separated from /profile so lightweight lookups don't pay the aggregation cost.
     sb = get_supabase()
     res = sb.table("players").select("*").eq("id", player_id).single().execute()
     if not res.data:
@@ -81,6 +96,7 @@ def get_player(player_id: str):
 
 @router.post("/", response_model=PlayerOut)
 def create_player(player: PlayerCreate):
+    # Creates a new player. Phone and email are optional but unique if provided.
     sb = get_supabase()
     res = sb.table("players").insert(player.model_dump()).execute()
     return res.data[0]
