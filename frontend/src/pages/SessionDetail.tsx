@@ -252,8 +252,9 @@ export default function SessionDetail() {
     return <LiveView session={session} onRefresh={loadSession} />
   }
 
-  // Draft: not started yet
-  if (session.status === 'draft') {
+  // Draft with no results = truly not started yet
+  const hasResults = session.results && session.results.length > 0
+  if (session.status === 'draft' && !hasResults) {
     return (
       <div className="max-w-4xl mx-auto p-6">
         <Link to="/tournaments" className="text-blue-500 hover:underline text-sm mb-4 block">← Back to Tournaments</Link>
@@ -267,7 +268,7 @@ export default function SessionDetail() {
     )
   }
 
-  // Completed sessions: existing standings + round-by-round table
+  // Completed sessions (or draft sessions with historical data): standings + round-by-round table
   const players = getPlayerSummary((session as Session).results || [])
   const roundGameKeys = getRoundGameKeys(players)
 
