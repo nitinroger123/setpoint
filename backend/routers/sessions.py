@@ -1,13 +1,23 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
+from typing import Optional
 from database import get_supabase
 from schemas.session import SessionCreate, SessionOut
 
 router = APIRouter()
 
-@router.get("/", response_model=list[SessionOut])
-def list_sessions():
+@router.get("/formats")
+def list_formats():
     sb = get_supabase()
-    res = sb.table("sessions").select("*").order("date", desc=True).execute()
+    res = sb.table("tournament_formats").select("id, name, description").eq("active", True).execute()
+    return res.data
+
+@router.get("/", response_model=list[SessionOut])
+def list_sessions(format_id: Optional[str] = Query(None)):
+    sb = get_supabase()
+    query = sb.table("sessions").select("*").order("date", desc=True)
+    if format_id:
+        query = query.eq("format_id", format_id)
+    res = query.execute()
     return res.data
 
 @router.get("/{session_id}")
