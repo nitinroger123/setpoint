@@ -1,0 +1,21 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from routers import players, sessions, games
+
+app = FastAPI(title="Setpoint API", version="0.1.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "https://setpoint.vercel.app"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(players.router, prefix="/api/players", tags=["players"])
+app.include_router(sessions.router, prefix="/api/sessions", tags=["sessions"])
+app.include_router(games.router, prefix="/api/games", tags=["games"])
+
+@app.get("/")
+def root():
+    return {"status": "ok", "app": "Setpoint API"}
