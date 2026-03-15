@@ -20,14 +20,3 @@ app.include_router(series.router, prefix="/api/series", tags=["series"])
 @app.get("/")
 def root():
     return {"status": "ok", "app": "Setpoint API"}
-
-@app.get("/debug/env")
-def debug_env():
-    import os
-    url = os.environ.get("SUPABASE_URL", "NOT SET")
-    key = os.environ.get("SUPABASE_SERVICE_KEY", "NOT SET")
-    return {
-        "supabase_url": url,
-        "key_prefix": key[:20] if key != "NOT SET" else "NOT SET",
-        "key_length": len(key)
-    }
