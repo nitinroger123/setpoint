@@ -105,6 +105,7 @@ function GameCard({
     : null
 
   async function submit() {
+    if (!game) return
     const sa = parseInt(scoreA)
     const sb_ = parseInt(scoreB)
     if (isNaN(sa) || isNaN(sb_) || sa === sb_) return
@@ -122,6 +123,7 @@ function GameCard({
   }
 
   async function clearScore() {
+    if (!game) return
     await directorApi.delete(
       `/api/director/sessions/${sessionId}/rounds/${game.round_number}/games/${game.game_number}/score`
     )
