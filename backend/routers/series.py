@@ -22,20 +22,14 @@ def get_leaderboard(series_id: str):
     if not session_ids:
         return []
 
-    # Fetch all game results for those sessions, joined with player name
-    results = sb.table("game_results") \
+    # Fetch exactly one row per player per session (round 1, game 1)
+    # This avoids the Supabase 1000-row default limit caused by fetching all 8 game rows per player
+    per_session = sb.table("game_results") \
         .select("player_id, session_id, total_wins, total_diff, place, players(name)") \
         .in_("session_id", session_ids) \
+        .eq("round_number", 1) \
+        .eq("game_number", 1) \
         .execute().data
-
-    # Deduplicate to one row per (player, session)
-    seen = set()
-    per_session: list[dict] = []
-    for r in results:
-        key = (r["player_id"], r["session_id"])
-        if key not in seen:
-            seen.add(key)
-            per_session.append(r)
 
     # Aggregate per player
     stats: dict[str, dict] = defaultdict(lambda: {
