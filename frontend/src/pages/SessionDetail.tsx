@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import api from '../lib/api'
-import { Session, GameResult } from '../types'
+import type { Session, GameResult } from '../types'
 
 function getPlayerSummary(results: GameResult[]) {
   const byPlayer: Record<string, {
@@ -45,7 +45,7 @@ export default function SessionDetail() {
           weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
         })}
       </h1>
-      <p className="text-gray-500 mb-6 capitalize">{session.tournament_type.replace(/_/g, ' ')}</p>
+      <p className="text-gray-500 mb-6 capitalize">{session.format_id?.replace(/-/g, ' ')}</p>
 
       <h2 className="text-xl font-semibold mb-3">Standings</h2>
       <div className="border rounded-xl overflow-hidden">

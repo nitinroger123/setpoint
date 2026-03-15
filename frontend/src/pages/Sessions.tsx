@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../lib/api'
-import { Session } from '../types'
+import type { Session } from '../types'
 
 export default function Sessions() {
   const [sessions, setSessions] = useState<Session[]>([])
