@@ -16,7 +16,7 @@ export default function Sessions() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    api.get('/api/sessions/formats/')
+    api.get('/api/sessions/formats')
       .then(res => {
         setFormats(res.data)
         if (res.data.length > 0) setActiveFormat(res.data[0].id)
@@ -27,7 +27,7 @@ export default function Sessions() {
   useEffect(() => {
     if (!activeFormat) return
     setLoading(true)
-    api.get('/api/series/', { params: { format_id: activeFormat } })
+    api.get('/api/series', { params: { format_id: activeFormat } })
       .then(res => {
         setSeriesList(res.data)
         setLoading(false)

@@ -23,7 +23,7 @@ export default function PlayerProfile() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    api.get(`/api/players/${id}/profile/`)
+    api.get(`/api/players/${id}/profile`)
       .then(res => { setData(res.data); setLoading(false) })
       .catch(() => { setError('Could not load player profile.'); setLoading(false) })
   }, [id])

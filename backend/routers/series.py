@@ -4,7 +4,7 @@ from collections import defaultdict
 
 router = APIRouter()
 
-@router.get("/")
+@router.get("")
 def list_series(format_id: str | None = None):
     sb = get_supabase()
     query = sb.table("tournament_series").select("*").eq("active", True).order("name")
