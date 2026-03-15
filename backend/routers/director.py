@@ -108,6 +108,12 @@ def activate_session(session_id: str, _: None = Depends(require_director)):
     """
     sb = get_supabase()
 
+    session = sb.table("sessions").select("status").eq("id", session_id).single().execute()
+    if not session.data:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.data["status"] == "completed":
+        raise HTTPException(status_code=400, detail="Session is already completed.")
+
     r1 = sb.table("round_assignments") \
         .select("player_id") \
         .eq("session_id", session_id) \
@@ -255,6 +261,15 @@ def submit_score(
     sb = get_supabase()
     score_a = body["score_a"]
     score_b = body["score_b"]
+
+    # Verify the game row exists before updating
+    existing = sb.table("round_games").select("id") \
+        .eq("session_id", session_id) \
+        .eq("round_number", round_number) \
+        .eq("game_number", game_number) \
+        .execute().data
+    if not existing:
+        raise HTTPException(status_code=404, detail=f"Game {game_number} for round {round_number} not found. Score Game 1 first.")
 
     sb.table("round_games") \
         .update({"score_a": score_a, "score_b": score_b}) \

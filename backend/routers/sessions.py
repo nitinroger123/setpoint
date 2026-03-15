@@ -12,7 +12,7 @@ def list_formats():
     res = sb.table("tournament_formats").select("id, name, description").eq("active", True).execute()
     return res.data
 
-@router.get("/", response_model=list[SessionOut])
+@router.get("", response_model=list[SessionOut])
 def list_sessions(format_id: Optional[str] = Query(None)):
     sb = get_supabase()
     query = sb.table("sessions").select("*").order("date", desc=True)
