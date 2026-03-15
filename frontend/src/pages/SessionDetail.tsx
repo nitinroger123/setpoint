@@ -57,7 +57,7 @@ export default function SessionDetail() {
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-8">
       <div>
-        <Link to="/sessions" className="text-blue-500 hover:underline text-sm mb-4 block">← Back to Tournaments</Link>
+        <Link to="/tournaments" className="text-blue-500 hover:underline text-sm mb-4 block">← Back to Tournaments</Link>
         <h1 className="text-3xl font-bold mb-1">
           {new Date(session.date + 'T00:00:00').toLocaleDateString('en-US', {
             weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
