@@ -29,7 +29,9 @@
       "Bash(curl:*)",
       "Bash(railway whoami:*)",
       "Bash(railway login:*)",
-      "Bash(railway variables:*)"
+      "Bash(railway variables:*)",
+      "Bash(find:*)",
+      "Bash(git push:*)"
     ]
   }
 }

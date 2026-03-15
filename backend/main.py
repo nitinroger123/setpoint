@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import players, sessions, games, series
+from routers import players, sessions, games, series, director
 
 app = FastAPI(title="Setpoint API", version="0.1.0")
 
@@ -16,6 +16,7 @@ app.include_router(players.router, prefix="/api/players", tags=["players"])
 app.include_router(sessions.router, prefix="/api/sessions", tags=["sessions"])
 app.include_router(games.router, prefix="/api/games", tags=["games"])
 app.include_router(series.router, prefix="/api/series", tags=["series"])
+app.include_router(director.router, prefix="/api/director", tags=["director"])
 
 @app.get("/")
 def root():

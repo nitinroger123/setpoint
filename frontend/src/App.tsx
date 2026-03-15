@@ -3,12 +3,15 @@ import Sessions from './pages/Sessions'
 import SeriesDetail from './pages/SeriesDetail'
 import SessionDetail from './pages/SessionDetail'
 import PlayerProfile from './pages/PlayerProfile'
+import Director from './pages/Director'
+import DirectorSession from './pages/DirectorSession'
 
 function Nav() {
   return (
     <nav className="bg-blue-600 text-white px-6 py-4 flex items-center gap-6 shadow">
       <Link to="/" className="text-xl font-bold tracking-tight">⚡ Setpoint</Link>
       <Link to="/tournaments" className="text-sm hover:underline">Tournaments</Link>
+      <Link to="/director" className="text-sm hover:underline ml-auto">Director</Link>
     </nav>
   )
 }
@@ -24,6 +27,8 @@ export default function App() {
           <Route path="/series/:id" element={<SeriesDetail />} />
           <Route path="/sessions/:id" element={<SessionDetail />} />
           <Route path="/players/:id" element={<PlayerProfile />} />
+          <Route path="/director" element={<Director />} />
+          <Route path="/director/sessions/:id" element={<DirectorSession />} />
         </Routes>
       </div>
     </BrowserRouter>
