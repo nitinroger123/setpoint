@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
 import Sessions from './pages/Sessions'
 import SeriesDetail from './pages/SeriesDetail'
 import SessionDetail from './pages/SessionDetail'
+import PlayerProfile from './pages/PlayerProfile'
 
 function Nav() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
           <Route path="/tournaments" element={<Sessions />} />
           <Route path="/series/:id" element={<SeriesDetail />} />
           <Route path="/sessions/:id" element={<SessionDetail />} />
+          <Route path="/players/:id" element={<PlayerProfile />} />
         </Routes>
       </div>
     </BrowserRouter>

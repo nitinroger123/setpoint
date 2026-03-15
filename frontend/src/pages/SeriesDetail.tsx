@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import api from '../lib/api'
 import type { TournamentSeries, Session } from '../types'
@@ -14,12 +14,26 @@ interface LeaderboardEntry {
   win_pct: number
 }
 
+type SortKey = 'name' | 'sessions' | 'first' | 'second' | 'third' | 'fourth' | 'win_pct'
+
+const COLUMNS: { key: SortKey; label: string; align: 'left' | 'center' }[] = [
+  { key: 'name',     label: 'Player',   align: 'left'   },
+  { key: 'sessions', label: 'Sessions', align: 'center' },
+  { key: 'first',    label: '🥇',       align: 'center' },
+  { key: 'second',   label: '🥈',       align: 'center' },
+  { key: 'third',    label: '🥉',       align: 'center' },
+  { key: 'fourth',   label: '🏅',       align: 'center' },
+  { key: 'win_pct',  label: 'Win %',    align: 'center' },
+]
+
 export default function SeriesDetail() {
   const { id } = useParams<{ id: string }>()
   const [series, setSeries] = useState<TournamentSeries | null>(null)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [sortKey, setSortKey] = useState<SortKey>('sessions')
+  const [sortAsc, setSortAsc] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -32,11 +46,27 @@ export default function SeriesDetail() {
         setLeaderboard(lbRes.data)
         setLoading(false)
       })
-      .catch(() => {
-        setError('Could not load series.')
-        setLoading(false)
-      })
+      .catch(() => { setError('Could not load series.'); setLoading(false) })
   }, [id])
+
+  const sorted = useMemo(() => {
+    return [...leaderboard].sort((a, b) => {
+      const av = a[sortKey]
+      const bv = b[sortKey]
+      if (typeof av === 'string') return sortAsc ? av.localeCompare(bv as string) : (bv as string).localeCompare(av)
+      return sortAsc ? (av as number) - (bv as number) : (bv as number) - (av as number)
+    })
+  }, [leaderboard, sortKey, sortAsc])
+
+  function handleSort(key: SortKey) {
+    if (key === sortKey) setSortAsc(a => !a)
+    else { setSortKey(key); setSortAsc(key === 'name') }
+  }
+
+  function SortIcon({ col }: { col: SortKey }) {
+    if (col !== sortKey) return <span className="text-gray-300 ml-1">↕</span>
+    return <span className="ml-1">{sortAsc ? '↑' : '↓'}</span>
+  }
 
   if (loading) return <div className="p-8 text-center text-gray-400">Loading...</div>
   if (error) return <div className="p-8 text-center text-red-500">{error}</div>
@@ -60,19 +90,25 @@ export default function SeriesDetail() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
                 <tr>
-                  <th className="px-4 py-3 text-left">Player</th>
-                  <th className="px-4 py-3 text-center">Sessions</th>
-                  <th className="px-4 py-3 text-center">🥇</th>
-                  <th className="px-4 py-3 text-center">🥈</th>
-                  <th className="px-4 py-3 text-center">🥉</th>
-                  <th className="px-4 py-3 text-center">🏅</th>
-                  <th className="px-4 py-3 text-center">Win %</th>
+                  {COLUMNS.map(col => (
+                    <th
+                      key={col.key}
+                      onClick={() => handleSort(col.key)}
+                      className={`px-4 py-3 cursor-pointer select-none hover:bg-gray-100 ${col.align === 'left' ? 'text-left' : 'text-center'}`}
+                    >
+                      {col.label}<SortIcon col={col.key} />
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {leaderboard.map((p, i) => (
+                {sorted.map((p, i) => (
                   <tr key={p.player_id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                    <td className="px-4 py-3 font-semibold">{p.name}</td>
+                    <td className="px-4 py-3 font-semibold">
+                      <Link to={`/players/${p.player_id}`} className="text-blue-600 hover:underline">
+                        {p.name}
+                      </Link>
+                    </td>
                     <td className="px-4 py-3 text-center text-gray-600">{p.sessions}</td>
                     <td className="px-4 py-3 text-center font-medium">{p.first || '—'}</td>
                     <td className="px-4 py-3 text-center font-medium">{p.second || '—'}</td>
