@@ -8,8 +8,8 @@ export interface Player {
 export interface Session {
   id: string
   date: string
-  tournament_type: string
-  num_rounds: number
+  format_id: string
+  num_rounds?: number
   notes?: string
   player_count?: number
   results?: GameResult[]
