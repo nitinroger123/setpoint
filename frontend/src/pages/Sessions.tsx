@@ -1,18 +1,17 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../lib/api'
-import type { Session } from '../types'
+import type { TournamentSeries } from '../types'
 
 interface Format {
   id: string
   name: string
-  description: string | null
 }
 
 export default function Sessions() {
   const [formats, setFormats] = useState<Format[]>([])
   const [activeFormat, setActiveFormat] = useState<string | null>(null)
-  const [sessions, setSessions] = useState<Session[]>([])
+  const [seriesList, setSeriesList] = useState<TournamentSeries[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -26,17 +25,16 @@ export default function Sessions() {
   }, [])
 
   useEffect(() => {
-    if (activeFormat === null) return
+    if (!activeFormat) return
     setLoading(true)
-    api.get('/api/sessions', { params: { format_id: activeFormat } })
+    api.get('/api/series', { params: { format_id: activeFormat } })
       .then(res => {
-        setSessions(res.data)
+        setSeriesList(res.data)
         setLoading(false)
       })
-      .catch(err => {
-        setError('Failed to load sessions.')
+      .catch(() => {
+        setError('Failed to load series.')
         setLoading(false)
-        console.error(err)
       })
   }, [activeFormat])
 
@@ -63,29 +61,25 @@ export default function Sessions() {
         ))}
       </div>
 
-      {/* Session list */}
+      {/* Series cards */}
       {loading ? (
         <div className="text-center py-12 text-gray-400">Loading...</div>
-      ) : sessions.length === 0 ? (
-        <div className="text-center py-12 text-gray-400">No tournaments yet for this format.</div>
+      ) : seriesList.length === 0 ? (
+        <div className="text-center py-12 text-gray-400">No series yet for this format.</div>
       ) : (
         <div className="grid gap-4">
-          {sessions.map(s => (
+          {seriesList.map(s => (
             <Link
               key={s.id}
-              to={`/sessions/${s.id}`}
+              to={`/series/${s.id}`}
               className="block border rounded-xl p-5 hover:shadow-md transition bg-white"
             >
               <div className="flex justify-between items-center">
                 <div>
-                  <p className="text-lg font-semibold">
-                    {new Date(s.date + 'T00:00:00').toLocaleDateString('en-US', {
-                      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-                    })}
-                  </p>
-                  <p className="text-sm text-gray-500 capitalize">
-                    {s.format_id?.replace(/-/g, ' ')} · {s.num_rounds ?? 4} rounds
-                  </p>
+                  <p className="text-lg font-semibold">{s.name}</p>
+                  {s.location && (
+                    <p className="text-sm text-gray-500 mt-0.5">📍 {s.location}</p>
+                  )}
                 </div>
                 <span className="text-blue-500 font-medium">View →</span>
               </div>

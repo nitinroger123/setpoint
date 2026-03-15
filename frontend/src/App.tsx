@@ -1,12 +1,13 @@
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
 import Sessions from './pages/Sessions'
+import SeriesDetail from './pages/SeriesDetail'
 import SessionDetail from './pages/SessionDetail'
 
 function Nav() {
   return (
     <nav className="bg-blue-600 text-white px-6 py-4 flex items-center gap-6 shadow">
       <Link to="/" className="text-xl font-bold tracking-tight">⚡ Setpoint</Link>
-      <Link to="/sessions" className="text-sm hover:underline">Tournaments</Link>
+      <Link to="/tournaments" className="text-sm hover:underline">Tournaments</Link>
     </nav>
   )
 }
@@ -18,7 +19,8 @@ export default function App() {
         <Nav />
         <Routes>
           <Route path="/" element={<Sessions />} />
-          <Route path="/sessions" element={<Sessions />} />
+          <Route path="/tournaments" element={<Sessions />} />
+          <Route path="/series/:id" element={<SeriesDetail />} />
           <Route path="/sessions/:id" element={<SessionDetail />} />
         </Routes>
       </div>

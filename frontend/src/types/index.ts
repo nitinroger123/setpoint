@@ -1,3 +1,13 @@
+export interface TournamentSeries {
+  id: string
+  name: string
+  format_id: string
+  location?: string
+  description?: string
+  active: boolean
+  sessions?: Session[]
+}
+
 export interface Player {
   id: string
   name: string

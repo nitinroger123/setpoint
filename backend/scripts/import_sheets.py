@@ -16,7 +16,7 @@ from datetime import datetime
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 SPREADSHEET_ID = os.environ.get("SHEETS_SPREADSHEET_ID")
-TOKEN_PATH = os.environ.get("GOOGLE_TOKEN_PATH", "/Users/nitinn/token.json")
+TOKEN_PATH = os.environ.get("GOOGLE_TOKEN_PATH", "/Users/nitinn/setpoint_token.json")
 
 SHEET_TABS = [
     "10/04/2025", "10/11/2025", "10/18/2025", "11/1/2025", "11/8/2025",
