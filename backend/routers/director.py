@@ -2,8 +2,17 @@ import os
 import random
 from fastapi import APIRouter, HTTPException, Depends, Header
 from database import get_supabase
+from standings_helper import compute_live_standings
 
 router = APIRouter()
+
+# Round schedule: G1 opener and the team that sits out G1 (plays G2 + G3)
+ROUND_SCHEDULE = {
+    1: {"g1": ("Aces", "Kings"),   "waiting": "Queens"},
+    2: {"g1": ("Aces", "Queens"),  "waiting": "Kings"},
+    3: {"g1": ("Kings", "Queens"), "waiting": "Aces"},
+    4: {"g1": ("Aces", "Kings"),   "waiting": "Queens"},
+}
 
 
 def require_director(x_director_pin: str = Header(default=None)):
@@ -41,7 +50,7 @@ def create_session(body: dict, _: None = Depends(require_director)):
 
 @router.get("/sessions/{session_id}")
 def get_session(session_id: str, _: None = Depends(require_director)):
-    """Get a session with its full roster and all round assignments."""
+    """Get a session with roster, round assignments, round games, and live standings."""
     sb = get_supabase()
 
     session = sb.table("sessions").select("*, tournament_series(name)") \
@@ -49,21 +58,18 @@ def get_session(session_id: str, _: None = Depends(require_director)):
     if not session.data:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    # Roster: flat list of player objects
     roster_rows = sb.table("session_roster") \
         .select("players(id, name, gender)") \
         .eq("session_id", session_id) \
         .execute().data
     roster = [r["players"] for r in roster_rows]
 
-    # Assignments: all rounds, grouped by round_number for convenience
     assignment_rows = sb.table("round_assignments") \
         .select("round_number, team, players(id, name, gender)") \
         .eq("session_id", session_id) \
         .order("round_number") \
         .execute().data
 
-    # Group assignments by round: { 1: {Aces: [...], Kings: [...], Queens: [...]}, ... }
     assignments: dict = {}
     for row in assignment_rows:
         rn = row["round_number"]
@@ -72,7 +78,56 @@ def get_session(session_id: str, _: None = Depends(require_director)):
             assignments[rn] = {"Aces": [], "Kings": [], "Queens": []}
         assignments[rn][team].append(row["players"])
 
-    return {**session.data, "roster": roster, "assignments": assignments}
+    round_games = sb.table("round_games").select("*") \
+        .eq("session_id", session_id) \
+        .order("round_number").order("game_number") \
+        .execute().data
+
+    live_standings = compute_live_standings(session_id, sb)
+
+    return {
+        **session.data,
+        "roster": roster,
+        "assignments": assignments,
+        "round_games": round_games,
+        "live_standings": live_standings,
+    }
+
+
+@router.post("/sessions/{session_id}/activate")
+def activate_session(session_id: str, _: None = Depends(require_director)):
+    """
+    Transition a draft session to active. Requires round 1 teams to be assigned.
+    Pre-creates G1 round_games entries for all 4 rounds (matchups are fixed by schedule).
+    """
+    sb = get_supabase()
+
+    r1 = sb.table("round_assignments") \
+        .select("player_id") \
+        .eq("session_id", session_id) \
+        .eq("round_number", 1) \
+        .execute().data
+    if len(r1) < 12:
+        raise HTTPException(status_code=400, detail="Assign Round 1 teams before activating.")
+
+    # Create G1 entries for all 4 rounds (delete first to handle re-activation)
+    for rn, schedule in ROUND_SCHEDULE.items():
+        team_a, team_b = schedule["g1"]
+        sb.table("round_games").delete() \
+            .eq("session_id", session_id) \
+            .eq("round_number", rn) \
+            .eq("game_number", 1) \
+            .execute()
+        sb.table("round_games").insert({
+            "session_id": session_id,
+            "round_number": rn,
+            "game_number": 1,
+            "team_a": team_a,
+            "team_b": team_b,
+        }).execute()
+
+    sb.table("sessions").update({"status": "active"}).eq("id", session_id).execute()
+    return {"ok": True}
 
 
 # ---------- Roster ----------
@@ -130,19 +185,18 @@ def assign_teams(session_id: str, round_number: int, _: None = Depends(require_d
 
     sb = get_supabase()
 
-    # Pull roster with gender
     roster_rows = sb.table("session_roster") \
         .select("players(id, name, gender)") \
         .eq("session_id", session_id) \
         .execute().data
     players = [r["players"] for r in roster_rows]
 
-    men   = [p for p in players if p["gender"] == "m"]
-    women = [p for p in players if p["gender"] == "f"]
-    ungenderered = [p for p in players if not p["gender"]]
+    men         = [p for p in players if p["gender"] == "m"]
+    women       = [p for p in players if p["gender"] == "f"]
+    ungendered  = [p for p in players if not p["gender"]]
 
-    if ungenderered:
-        names = ", ".join(p["name"] for p in ungenderered)
+    if ungendered:
+        names = ", ".join(p["name"] for p in ungendered)
         raise HTTPException(
             status_code=400,
             detail=f"Gender not set for: {names}. Please set gender before assigning teams."
@@ -153,7 +207,6 @@ def assign_teams(session_id: str, round_number: int, _: None = Depends(require_d
             detail=f"Need exactly 6 men and 6 women. Currently: {len(men)}M / {len(women)}F."
         )
 
-    # Shuffle and split into 3 groups of 2M + 2F
     random.shuffle(men)
     random.shuffle(women)
 
@@ -168,12 +221,93 @@ def assign_teams(session_id: str, round_number: int, _: None = Depends(require_d
                 "team": team,
             })
 
-    # Delete any existing assignments for this round before reinserting
     sb.table("round_assignments") \
         .delete() \
         .eq("session_id", session_id) \
         .eq("round_number", round_number) \
         .execute()
-
     sb.table("round_assignments").insert(records).execute()
     return records
+
+
+# ---------- Scoring ----------
+
+@router.post("/sessions/{session_id}/rounds/{round_number}/games/{game_number}/score")
+def submit_score(
+    session_id: str, round_number: int, game_number: int,
+    body: dict, _: None = Depends(require_director)
+):
+    """
+    Submit or update the score for a game. After G1 is scored, G2 and G3 matchups are
+    determined (winner stays vs waiting team; loser vs waiting team) and their entries
+    are created automatically.
+    Returns updated live standings.
+    """
+    if round_number not in ROUND_SCHEDULE:
+        raise HTTPException(status_code=400, detail="round_number must be 1–4")
+
+    sb = get_supabase()
+    score_a = body["score_a"]
+    score_b = body["score_b"]
+
+    sb.table("round_games") \
+        .update({"score_a": score_a, "score_b": score_b}) \
+        .eq("session_id", session_id) \
+        .eq("round_number", round_number) \
+        .eq("game_number", game_number) \
+        .execute()
+
+    # After G1 is scored, determine and create G2 + G3 matchups
+    if game_number == 1:
+        g1 = sb.table("round_games").select("team_a, team_b") \
+            .eq("session_id", session_id) \
+            .eq("round_number", round_number) \
+            .eq("game_number", 1) \
+            .single().execute().data
+
+        waiting = ROUND_SCHEDULE[round_number]["waiting"]
+        winner = g1["team_a"] if score_a > score_b else g1["team_b"]
+        loser  = g1["team_b"] if score_a > score_b else g1["team_a"]
+
+        for gn, (ta, tb) in [(2, (winner, waiting)), (3, (loser, waiting))]:
+            # Delete any existing entry (e.g. if G1 score is being corrected)
+            sb.table("round_games").delete() \
+                .eq("session_id", session_id) \
+                .eq("round_number", round_number) \
+                .eq("game_number", gn) \
+                .execute()
+            sb.table("round_games").insert({
+                "session_id": session_id,
+                "round_number": round_number,
+                "game_number": gn,
+                "team_a": ta,
+                "team_b": tb,
+            }).execute()
+
+    return compute_live_standings(session_id, sb)
+
+
+@router.delete("/sessions/{session_id}/rounds/{round_number}/games/{game_number}/score")
+def clear_score(
+    session_id: str, round_number: int, game_number: int,
+    _: None = Depends(require_director)
+):
+    """Clear a game score (allows re-entry). Clearing G1 also removes G2/G3 entries."""
+    sb = get_supabase()
+
+    sb.table("round_games") \
+        .update({"score_a": None, "score_b": None}) \
+        .eq("session_id", session_id) \
+        .eq("round_number", round_number) \
+        .eq("game_number", game_number) \
+        .execute()
+
+    # If clearing G1, remove G2 and G3 since their matchups depend on G1 result
+    if game_number == 1:
+        sb.table("round_games").delete() \
+            .eq("session_id", session_id) \
+            .eq("round_number", round_number) \
+            .in_("game_number", [2, 3]) \
+            .execute()
+
+    return {"ok": True}
