@@ -143,8 +143,8 @@ def get_teammate_stats(player_id: str):
         s["losses"] = s["games"] - s["wins"]
         s["win_pct"] = round(s["wins"] / s["games"] * 100, 1) if s["games"] > 0 else 0.0
 
-    # Most played: no minimum, just whoever you've shared the most games with
-    most_played = sorted(all_stats, key=lambda x: (-x["games"], -x["wins"]))[:5]
+    # All teammates sorted by most games together
+    most_played = sorted(all_stats, key=lambda x: (-x["games"], -x["wins"]))
 
     # Minimum sample size of 8 games together for win%-based lists
     qualified = [s for s in all_stats if s["games"] >= 8]

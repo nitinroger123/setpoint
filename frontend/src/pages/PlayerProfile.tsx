@@ -90,8 +90,8 @@ export default function PlayerProfile() {
       {/* Most played with */}
       {mostPlayed.length > 0 && (
         <div>
-          <h2 className="text-xl font-semibold mb-1">Most Played With</h2>
-          <p className="text-sm text-gray-400 mb-3">Teammates by games together</p>
+          <h2 className="text-xl font-semibold mb-1">Teammate History</h2>
+          <p className="text-sm text-gray-400 mb-3">All teammates, sorted by games played together</p>
           <div className="border rounded-xl overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
