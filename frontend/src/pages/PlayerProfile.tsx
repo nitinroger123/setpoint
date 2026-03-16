@@ -23,7 +23,7 @@ const medals: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉', 4: '�
 export default function PlayerProfile() {
   const { id } = useParams<{ id: string }>()
   const [data, setData] = useState<PlayerProfileData | null>(null)
-  const [teammates, setTeammates] = useState<{ top_teammates: TeammateStat[]; worst_teammates: TeammateStat[] } | null>(null)
+  const [teammates, setTeammates] = useState<{ most_played: TeammateStat[]; top_teammates: TeammateStat[]; worst_teammates: TeammateStat[] } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -86,6 +86,73 @@ export default function PlayerProfile() {
           </div>
         ))}
       </div>
+
+      {/* Teammate chemistry */}
+      {(topTeammates.length > 0 || worstTeammates.length > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {topTeammates.length > 0 && (
+            <div>
+              <h2 className="text-xl font-semibold mb-1">Best Teammates</h2>
+              <p className="text-sm text-gray-400 mb-3">Highest win % together (min 8 games)</p>
+              <div className="border rounded-xl overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
+                    <tr>
+                      <th className="px-4 py-3 text-left">Player</th>
+                      <th className="px-4 py-3 text-center">Games</th>
+                      <th className="px-4 py-3 text-center">Wins</th>
+                      <th className="px-4 py-3 text-center">Win %</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {topTeammates.map(t => (
+                      <tr key={t.id} className="bg-white hover:bg-gray-50">
+                        <td className="px-4 py-3 font-semibold">
+                          <a href={`/players/${t.id}`} className="text-blue-500 hover:underline">{t.name}</a>
+                        </td>
+                        <td className="px-4 py-3 text-center text-gray-500">{t.games}</td>
+                        <td className="px-4 py-3 text-center text-green-600 font-medium">{t.wins}</td>
+                        <td className="px-4 py-3 text-center font-medium text-green-600">{t.win_pct}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {worstTeammates.length > 0 && (
+            <div>
+              <h2 className="text-xl font-semibold mb-1">Tough Pairings</h2>
+              <p className="text-sm text-gray-400 mb-3">Lowest win % together (min 8 games)</p>
+              <div className="border rounded-xl overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
+                    <tr>
+                      <th className="px-4 py-3 text-left">Player</th>
+                      <th className="px-4 py-3 text-center">Games</th>
+                      <th className="px-4 py-3 text-center">Losses</th>
+                      <th className="px-4 py-3 text-center">Win %</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {worstTeammates.map(t => (
+                      <tr key={t.id} className="bg-white hover:bg-gray-50">
+                        <td className="px-4 py-3 font-semibold">
+                          <a href={`/players/${t.id}`} className="text-blue-500 hover:underline">{t.name}</a>
+                        </td>
+                        <td className="px-4 py-3 text-center text-gray-500">{t.games}</td>
+                        <td className="px-4 py-3 text-center text-red-500 font-medium">{t.losses}</td>
+                        <td className="px-4 py-3 text-center font-medium text-red-500">{t.win_pct}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Session history + Teammate history side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -159,73 +226,6 @@ export default function PlayerProfile() {
           </div>
         )}
       </div>
-
-      {/* Teammate chemistry */}
-      {(topTeammates.length > 0 || worstTeammates.length > 0) && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {topTeammates.length > 0 && (
-            <div>
-              <h2 className="text-xl font-semibold mb-1">Best Teammates</h2>
-              <p className="text-sm text-gray-400 mb-3">Highest win % together (min 8 games)</p>
-              <div className="border rounded-xl overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
-                    <tr>
-                      <th className="px-4 py-3 text-left">Player</th>
-                      <th className="px-4 py-3 text-center">Games</th>
-                      <th className="px-4 py-3 text-center">Wins</th>
-                      <th className="px-4 py-3 text-center">Win %</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {topTeammates.map(t => (
-                      <tr key={t.id} className="bg-white hover:bg-gray-50">
-                        <td className="px-4 py-3 font-semibold">
-                          <a href={`/players/${t.id}`} className="text-blue-500 hover:underline">{t.name}</a>
-                        </td>
-                        <td className="px-4 py-3 text-center text-gray-500">{t.games}</td>
-                        <td className="px-4 py-3 text-center text-green-600 font-medium">{t.wins}</td>
-                        <td className="px-4 py-3 text-center font-medium text-green-600">{t.win_pct}%</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {worstTeammates.length > 0 && (
-            <div>
-              <h2 className="text-xl font-semibold mb-1">Tough Pairings</h2>
-              <p className="text-sm text-gray-400 mb-3">Lowest win % together (min 8 games)</p>
-              <div className="border rounded-xl overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
-                    <tr>
-                      <th className="px-4 py-3 text-left">Player</th>
-                      <th className="px-4 py-3 text-center">Games</th>
-                      <th className="px-4 py-3 text-center">Losses</th>
-                      <th className="px-4 py-3 text-center">Win %</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {worstTeammates.map(t => (
-                      <tr key={t.id} className="bg-white hover:bg-gray-50">
-                        <td className="px-4 py-3 font-semibold">
-                          <a href={`/players/${t.id}`} className="text-blue-500 hover:underline">{t.name}</a>
-                        </td>
-                        <td className="px-4 py-3 text-center text-gray-500">{t.games}</td>
-                        <td className="px-4 py-3 text-center text-red-500 font-medium">{t.losses}</td>
-                        <td className="px-4 py-3 text-center font-medium text-red-500">{t.win_pct}%</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   )
 }
