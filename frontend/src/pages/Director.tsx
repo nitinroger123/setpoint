@@ -117,6 +117,12 @@ export default function Director() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Director</h1>
         <div className="flex gap-2">
+          <Link
+            to="/director/players"
+            className="border px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100"
+          >
+            Players
+          </Link>
           <button
             onClick={() => setShowCreate(s => !s)}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"

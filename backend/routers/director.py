@@ -184,6 +184,41 @@ def update_player_gender(player_id: str, body: dict, _: None = Depends(require_d
     return {"ok": True}
 
 
+@router.post("/players")
+def create_player(body: dict, _: None = Depends(require_director)):
+    """Create a new player."""
+    if not body.get("name"):
+        raise HTTPException(status_code=400, detail="name is required")
+    sb = get_supabase()
+    data = {k: body[k] for k in ("name", "phone", "email", "gender") if body.get(k)}
+    res = sb.table("players").insert(data).execute()
+    return res.data[0]
+
+
+@router.put("/players/{player_id}")
+def update_player(player_id: str, body: dict, _: None = Depends(require_director)):
+    """Update a player's name, phone, email, or gender."""
+    if "name" in body and not body["name"]:
+        raise HTTPException(status_code=400, detail="name cannot be empty")
+    sb = get_supabase()
+    updates = {k: body.get(k) for k in ("name", "phone", "email", "gender") if k in body}
+    res = sb.table("players").update(updates).eq("id", player_id).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Player not found")
+    return res.data[0]
+
+
+@router.delete("/players/{player_id}")
+def delete_player(player_id: str, _: None = Depends(require_director)):
+    """Delete a player. Will fail if they have session history."""
+    sb = get_supabase()
+    try:
+        sb.table("players").delete().eq("id", player_id).execute()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Cannot delete player: {e}")
+    return {"ok": True}
+
+
 # ---------- Team assignment ----------
 
 @router.post("/sessions/{session_id}/rounds/{round_number}/assign-teams")

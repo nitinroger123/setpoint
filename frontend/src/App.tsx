@@ -5,6 +5,7 @@ import SessionDetail from './pages/SessionDetail'
 import PlayerProfile from './pages/PlayerProfile'
 import Director from './pages/Director'
 import DirectorSession from './pages/DirectorSession'
+import DirectorPlayers from './pages/DirectorPlayers'
 
 function Nav() {
   return (
@@ -29,6 +30,7 @@ export default function App() {
           <Route path="/players/:id" element={<PlayerProfile />} />
           <Route path="/director" element={<Director />} />
           <Route path="/director/sessions/:id" element={<DirectorSession />} />
+          <Route path="/director/players" element={<DirectorPlayers />} />
         </Routes>
       </div>
     </BrowserRouter>
