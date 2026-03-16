@@ -3,6 +3,7 @@ import random
 from fastapi import APIRouter, HTTPException, Depends, Header
 from database import get_supabase
 from standings_helper import compute_live_standings
+from config import ROSTER_SIZE, NUM_ROUNDS, MEN_PER_SESSION, WOMEN_PER_SESSION
 
 router = APIRouter()
 
@@ -119,7 +120,7 @@ def activate_session(session_id: str, _: None = Depends(require_director)):
         .eq("session_id", session_id) \
         .eq("round_number", 1) \
         .execute().data
-    if len(r1) < 12:
+    if len(r1) < ROSTER_SIZE:
         raise HTTPException(status_code=400, detail="Assign Round 1 teams before activating.")
 
     # Create G1 entries for all 4 rounds (delete first to handle re-activation)
@@ -192,8 +193,8 @@ def assign_teams(session_id: str, round_number: int, _: None = Depends(require_d
     Requires exactly 6 men and 6 women in the roster (2M + 2F per team).
     Calling this again for the same round overwrites previous assignments.
     """
-    if round_number < 1 or round_number > 4:
-        raise HTTPException(status_code=400, detail="round_number must be 1–4")
+    if round_number < 1 or round_number > NUM_ROUNDS:
+        raise HTTPException(status_code=400, detail=f"round_number must be 1–{NUM_ROUNDS}")
 
     sb = get_supabase()
 
@@ -213,10 +214,10 @@ def assign_teams(session_id: str, round_number: int, _: None = Depends(require_d
             status_code=400,
             detail=f"Gender not set for: {names}. Please set gender before assigning teams."
         )
-    if len(men) != 6 or len(women) != 6:
+    if len(men) != MEN_PER_SESSION or len(women) != WOMEN_PER_SESSION:
         raise HTTPException(
             status_code=400,
-            detail=f"Need exactly 6 men and 6 women. Currently: {len(men)}M / {len(women)}F."
+            detail=f"Need exactly {MEN_PER_SESSION} men and {WOMEN_PER_SESSION} women. Currently: {len(men)}M / {len(women)}F."
         )
 
     random.shuffle(men)

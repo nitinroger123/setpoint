@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from database import get_supabase, fetch_all
 from collections import defaultdict
+from config import GAMES_PER_SESSION
 
 router = APIRouter()
 
@@ -49,7 +50,7 @@ def get_leaderboard(series_id: str):
         elif place == 3: s["third"] += 1
         elif place == 4: s["fourth"] += 1
         s["total_wins"] += r["total_wins"] or 0
-        s["total_games"] += 8  # 4 rounds x 2 games per format
+        s["total_games"] += GAMES_PER_SESSION
 
     # Compute win % and sort by sessions desc, then win % desc
     leaderboard = []
