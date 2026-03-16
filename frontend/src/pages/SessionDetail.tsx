@@ -271,9 +271,11 @@ export default function SessionDetail() {
   // Completed sessions (or draft sessions with historical data): standings + round-by-round table
   const players = getPlayerSummary((session as Session).results || [])
   const roundGameKeys = getRoundGameKeys(players)
+  const assignments: Record<string, TeamAssignments> = session.round_assignments ?? {}
+  const hasAssignments = Object.keys(assignments).length > 0
 
   return (
-    <div className="max-w-5xl mx-auto p-6 space-y-8">
+    <div className="max-w-6xl mx-auto p-6 space-y-8">
       <div>
         <Link to="/tournaments" className="text-blue-500 hover:underline text-sm mb-4 block">← Back to Tournaments</Link>
         <h1 className="text-3xl font-bold mb-1">
@@ -312,46 +314,103 @@ export default function SessionDetail() {
         </div>
       </div>
 
-      {roundGameKeys.length > 0 && (
-        <div>
-          <h2 className="text-xl font-semibold mb-3">Round-by-Round Results</h2>
-          <div className="border rounded-xl overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
-                <tr>
-                  <th className="px-4 py-3 text-left sticky left-0 bg-gray-50">Player</th>
-                  {roundGameKeys.map(key => {
-                    const [r, g] = key.split('-')
-                    return <th key={key} className="px-3 py-3 text-center whitespace-nowrap">R{r} G{g}</th>
-                  })}
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {players.map((p, i) => {
-                  const gameByKey: Record<string, GameResult> = {}
-                  for (const g of p.games) gameByKey[`${g.round_number}-${g.game_number}`] = g
-                  return (
-                    <tr key={p.name} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                      <td className="px-4 py-3 font-semibold sticky left-0 bg-inherit whitespace-nowrap">
-                        {medals[p.place] && <span className="mr-1">{medals[p.place]}</span>}
-                        {p.name}
-                      </td>
+      {/* Round-by-round results + Team assignments side by side */}
+      {(roundGameKeys.length > 0 || hasAssignments) && (
+        <div className={`grid gap-6 ${roundGameKeys.length > 0 && hasAssignments ? 'lg:grid-cols-2' : 'grid-cols-1'}`}>
+
+          {roundGameKeys.length > 0 && (
+            <div>
+              <h2 className="text-xl font-semibold mb-3">Round-by-Round Results</h2>
+              <div className="border rounded-xl overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
+                    <tr>
+                      <th className="px-4 py-3 text-left sticky left-0 bg-gray-50">Player</th>
                       {roundGameKeys.map(key => {
-                        const g = gameByKey[key]
-                        if (!g) return <td key={key} className="px-3 py-3 text-center text-gray-300">—</td>
-                        return (
-                          <td key={key} className={`px-3 py-3 text-center font-medium ${g.point_diff > 0 ? 'text-green-600' : g.point_diff < 0 ? 'text-red-500' : 'text-gray-400'}`}>
-                            {g.point_diff > 0 ? '+' : ''}{g.point_diff}
-                          </td>
-                        )
+                        const [r, g] = key.split('-')
+                        return <th key={key} className="px-3 py-3 text-center whitespace-nowrap">R{r} G{g}</th>
                       })}
                     </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody className="divide-y">
+                    {players.map((p, i) => {
+                      const gameByKey: Record<string, GameResult> = {}
+                      for (const g of p.games) gameByKey[`${g.round_number}-${g.game_number}`] = g
+                      return (
+                        <tr key={p.name} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                          <td className="px-4 py-3 font-semibold sticky left-0 bg-inherit whitespace-nowrap">
+                            {medals[p.place] && <span className="mr-1">{medals[p.place]}</span>}
+                            {p.name}
+                          </td>
+                          {roundGameKeys.map(key => {
+                            const g = gameByKey[key]
+                            if (!g) return <td key={key} className="px-3 py-3 text-center text-gray-300">—</td>
+                            return (
+                              <td key={key} className={`px-3 py-3 text-center font-medium ${g.point_diff > 0 ? 'text-green-600' : g.point_diff < 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                                {g.point_diff > 0 ? '+' : ''}{g.point_diff}
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {hasAssignments && (
+            <CompletedTeamsPanel assignments={assignments} />
+          )}
         </div>
+      )}
+    </div>
+  )
+}
+
+// ── Team assignments panel for completed sessions ─────────────────────────────
+
+function CompletedTeamsPanel({ assignments }: { assignments: Record<string, TeamAssignments> }) {
+  const [activeRound, setActiveRound] = useState(1)
+  const rounds = [1, 2, 3, 4].filter(r => assignments[String(r)])
+
+  return (
+    <div>
+      <h2 className="text-xl font-semibold mb-3">Team Assignments</h2>
+      <div className="flex gap-1 mb-4 border-b">
+        {rounds.map(r => (
+          <button key={r} onClick={() => setActiveRound(r)}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
+              activeRound === r ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Round {r}
+          </button>
+        ))}
+      </div>
+      {assignments[String(activeRound)] ? (
+        <div className="grid grid-cols-3 gap-3">
+          {TEAMS.map(team => (
+            <div key={team} className="border rounded-xl overflow-hidden">
+              <div className={`px-3 py-2 font-semibold text-sm text-center ${TEAM_STYLE[team]}`}>{team}</div>
+              <ul className="divide-y">
+                {assignments[String(activeRound)][team].map(p => (
+                  <li key={p.id} className="px-3 py-2 flex items-center justify-between bg-white text-sm">
+                    <span className="font-medium">{p.name}</span>
+                    {p.gender && (
+                      <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${GENDER_COLOR[p.gender]}`}>
+                        {p.gender.toUpperCase()}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-8 text-gray-400 border rounded-xl">No team data for Round {activeRound}</div>
       )}
     </div>
   )

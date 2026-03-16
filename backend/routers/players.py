@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from database import get_supabase
+from database import get_supabase, fetch_all
 from schemas.player import PlayerCreate, PlayerOut
 from collections import defaultdict
 
@@ -76,6 +76,78 @@ def get_player_profile(player_id: str):
         "overall": overall,
         "history": history,
     }
+
+@router.get("/{player_id}/teammate-stats")
+def get_teammate_stats(player_id: str):
+    # Returns top 5 and worst 5 teammates based on games played together.
+    # Win/loss counts are taken from the player's own game_results for each round.
+    sb = get_supabase()
+
+    my_assignments = sb.table("round_assignments") \
+        .select("session_id, round_number, team") \
+        .eq("player_id", player_id) \
+        .execute().data
+
+    if not my_assignments:
+        return {"top_teammates": [], "worst_teammates": []}
+
+    session_ids = list({a["session_id"] for a in my_assignments})
+
+    # Fetch all round_assignments and game_results for those sessions in bulk
+    all_assignments = fetch_all(
+        sb.table("round_assignments")
+        .select("session_id, round_number, team, player_id, players(name)")
+        .in_("session_id", session_ids)
+    )
+    my_games = fetch_all(
+        sb.table("game_results")
+        .select("session_id, round_number, point_diff")
+        .eq("player_id", player_id)
+        .in_("session_id", session_ids)
+    )
+
+    # (session_id, round_number) -> {wins, games}
+    round_results: dict = {}
+    for g in my_games:
+        key = (g["session_id"], g["round_number"])
+        if key not in round_results:
+            round_results[key] = {"wins": 0, "games": 0}
+        round_results[key]["games"] += 1
+        if g["point_diff"] > 0:
+            round_results[key]["wins"] += 1
+
+    # (session_id, round_number, team) -> [player_ids]
+    team_members: dict = defaultdict(list)
+    player_names: dict = {}
+    for a in all_assignments:
+        team_members[(a["session_id"], a["round_number"], a["team"])].append(a["player_id"])
+        if a.get("players"):
+            player_names[a["player_id"]] = a["players"]["name"]
+
+    # Aggregate wins/games per teammate
+    teammate_stats: dict = {}
+    for a in my_assignments:
+        team_key = (a["session_id"], a["round_number"], a["team"])
+        round_key = (a["session_id"], a["round_number"])
+        r = round_results.get(round_key, {"wins": 0, "games": 0})
+        for tid in team_members.get(team_key, []):
+            if tid == player_id:
+                continue
+            if tid not in teammate_stats:
+                teammate_stats[tid] = {"id": tid, "name": player_names.get(tid, "Unknown"), "games": 0, "wins": 0}
+            teammate_stats[tid]["games"] += r["games"]
+            teammate_stats[tid]["wins"] += r["wins"]
+
+    all_stats = list(teammate_stats.values())
+    for s in all_stats:
+        s["losses"] = s["games"] - s["wins"]
+        s["win_pct"] = round(s["wins"] / s["games"] * 100, 1) if s["games"] > 0 else 0.0
+
+    top   = sorted(all_stats, key=lambda x: (-x["wins"],   -x["win_pct"]))[:5]
+    worst = sorted(all_stats, key=lambda x: (-x["losses"],  x["win_pct"]))[:5]
+
+    return {"top_teammates": top, "worst_teammates": worst}
+
 
 @router.get("/{player_id}")
 def get_player(player_id: str):
