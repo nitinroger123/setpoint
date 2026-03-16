@@ -143,8 +143,8 @@ def get_teammate_stats(player_id: str):
         s["losses"] = s["games"] - s["wins"]
         s["win_pct"] = round(s["wins"] / s["games"] * 100, 1) if s["games"] > 0 else 0.0
 
-    # Minimum sample size of 4 games together
-    qualified = [s for s in all_stats if s["games"] >= 4]
+    # Minimum sample size of 8 games together
+    qualified = [s for s in all_stats if s["games"] >= 8]
 
     # Top: highest win % first, then most wins as tiebreaker
     top   = sorted(qualified, key=lambda x: (-x["win_pct"], -x["wins"]))[:5]
