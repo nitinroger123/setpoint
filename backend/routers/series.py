@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from database import get_supabase
+from database import get_supabase, fetch_all
 from collections import defaultdict
 
 router = APIRouter()
@@ -24,10 +24,11 @@ def get_leaderboard(series_id: str):
 
     # Use session_standings for one clean row per player per session.
     # This replaces the old game_results round=1/game=1 anchor hack.
-    per_session = sb.table("session_standings") \
-        .select("player_id, session_id, total_wins, total_diff, place, players(name)") \
-        .in_("session_id", session_ids) \
-        .execute().data
+    per_session = fetch_all(
+        sb.table("session_standings")
+        .select("player_id, session_id, total_wins, total_diff, place, players(name)")
+        .in_("session_id", session_ids)
+    )
 
     # Aggregate per player
     stats: dict[str, dict] = defaultdict(lambda: {
