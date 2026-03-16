@@ -87,31 +87,37 @@ export default function PlayerProfile() {
         ))}
       </div>
 
-      {/* Most played with */}
-      {mostPlayed.length > 0 && (
+      {/* Session history + Teammate history side by side */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Session history */}
         <div>
-          <h2 className="text-xl font-semibold mb-1">Teammate History</h2>
-          <p className="text-sm text-gray-400 mb-3">All teammates, sorted by games played together</p>
+          <h2 className="text-xl font-semibold mb-3">Session History</h2>
           <div className="border rounded-xl overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
                 <tr>
-                  <th className="px-4 py-3 text-left">Player</th>
-                  <th className="px-4 py-3 text-center">Games</th>
+                  <th className="px-4 py-3 text-left">Date</th>
+                  <th className="px-4 py-3 text-left">Series</th>
+                  <th className="px-4 py-3 text-center">Place</th>
                   <th className="px-4 py-3 text-center">Wins</th>
-                  <th className="px-4 py-3 text-center">Win %</th>
+                  <th className="px-4 py-3 text-center">+/-</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {mostPlayed.map(t => (
-                  <tr key={t.id} className="bg-white hover:bg-gray-50">
-                    <td className="px-4 py-3 font-semibold">
-                      <a href={`/players/${t.id}`} className="text-blue-500 hover:underline">{t.name}</a>
+                {history.map(h => (
+                  <tr key={h.session_id} className="bg-white hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <Link to={`/sessions/${h.session_id}`} className="text-blue-500 hover:underline">
+                        {new Date(h.date + 'T00:00:00').toLocaleDateString('en-US', {
+                          month: 'short', day: 'numeric', year: 'numeric'
+                        })}
+                      </Link>
                     </td>
-                    <td className="px-4 py-3 text-center font-medium">{t.games}</td>
-                    <td className="px-4 py-3 text-center text-gray-600">{t.wins}</td>
-                    <td className={`px-4 py-3 text-center font-medium ${t.win_pct >= 50 ? 'text-green-600' : 'text-red-500'}`}>
-                      {t.win_pct}%
+                    <td className="px-4 py-3 text-gray-600 text-xs">{h.series_name}</td>
+                    <td className="px-4 py-3 text-center font-medium">{medals[h.place] || h.place}</td>
+                    <td className="px-4 py-3 text-center">{h.total_wins}</td>
+                    <td className={`px-4 py-3 text-center font-medium ${h.total_diff > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                      {h.total_diff > 0 ? '+' : ''}{h.total_diff}
                     </td>
                   </tr>
                 ))}
@@ -119,7 +125,40 @@ export default function PlayerProfile() {
             </table>
           </div>
         </div>
-      )}
+
+        {/* Teammate history */}
+        {mostPlayed.length > 0 && (
+          <div>
+            <h2 className="text-xl font-semibold mb-3">Teammate History</h2>
+            <div className="border rounded-xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Player</th>
+                    <th className="px-4 py-3 text-center">Games</th>
+                    <th className="px-4 py-3 text-center">Wins</th>
+                    <th className="px-4 py-3 text-center">Win %</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {mostPlayed.map(t => (
+                    <tr key={t.id} className="bg-white hover:bg-gray-50">
+                      <td className="px-4 py-3 font-semibold">
+                        <a href={`/players/${t.id}`} className="text-blue-500 hover:underline">{t.name}</a>
+                      </td>
+                      <td className="px-4 py-3 text-center font-medium">{t.games}</td>
+                      <td className="px-4 py-3 text-center text-gray-600">{t.wins}</td>
+                      <td className={`px-4 py-3 text-center font-medium ${t.win_pct >= 50 ? 'text-green-600' : 'text-red-500'}`}>
+                        {t.win_pct}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Teammate chemistry */}
       {(topTeammates.length > 0 || worstTeammates.length > 0) && (
@@ -127,7 +166,7 @@ export default function PlayerProfile() {
           {topTeammates.length > 0 && (
             <div>
               <h2 className="text-xl font-semibold mb-1">Best Teammates</h2>
-              <p className="text-sm text-gray-400 mb-3">Most wins together</p>
+              <p className="text-sm text-gray-400 mb-3">Highest win % together (min 8 games)</p>
               <div className="border rounded-xl overflow-hidden">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
@@ -158,7 +197,7 @@ export default function PlayerProfile() {
           {worstTeammates.length > 0 && (
             <div>
               <h2 className="text-xl font-semibold mb-1">Tough Pairings</h2>
-              <p className="text-sm text-gray-400 mb-3">Most losses together</p>
+              <p className="text-sm text-gray-400 mb-3">Lowest win % together (min 8 games)</p>
               <div className="border rounded-xl overflow-hidden">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
@@ -187,45 +226,6 @@ export default function PlayerProfile() {
           )}
         </div>
       )}
-
-      {/* Session history */}
-      <div>
-        <h2 className="text-xl font-semibold mb-3">Session History</h2>
-        <div className="border rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
-              <tr>
-                <th className="px-4 py-3 text-left">Date</th>
-                <th className="px-4 py-3 text-left">Series</th>
-                <th className="px-4 py-3 text-center">Place</th>
-                <th className="px-4 py-3 text-center">Wins</th>
-                <th className="px-4 py-3 text-center">Point Diff</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {history.map(h => (
-                <tr key={h.session_id} className="bg-white hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <Link to={`/sessions/${h.session_id}`} className="text-blue-500 hover:underline">
-                      {new Date(h.date + 'T00:00:00').toLocaleDateString('en-US', {
-                        month: 'short', day: 'numeric', year: 'numeric'
-                      })}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">{h.series_name}</td>
-                  <td className="px-4 py-3 text-center font-medium">
-                    {medals[h.place] || h.place}
-                  </td>
-                  <td className="px-4 py-3 text-center">{h.total_wins}</td>
-                  <td className={`px-4 py-3 text-center font-medium ${h.total_diff > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                    {h.total_diff > 0 ? '+' : ''}{h.total_diff}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
     </div>
   )
 }
