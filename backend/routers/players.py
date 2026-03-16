@@ -148,8 +148,8 @@ def get_teammate_stats(player_id: str):
 
     # Top: highest win % first, then most wins as tiebreaker
     top   = sorted(qualified, key=lambda x: (-x["win_pct"], -x["wins"]))[:5]
-    # Worst: most losses first, then lowest win % as tiebreaker
-    worst = sorted(qualified, key=lambda x: (-x["losses"],   x["win_pct"]))[:5]
+    # Worst: lowest win % first, then most losses as tiebreaker
+    worst = sorted(qualified, key=lambda x: (x["win_pct"], -x["losses"]))[:5]
 
     return {"top_teammates": top, "worst_teammates": worst}
 
