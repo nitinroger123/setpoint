@@ -45,6 +45,7 @@ export default function PlayerProfile() {
   if (!data) return null
 
   const { player, overall, history } = data
+  const mostPlayed = teammates?.most_played ?? []
   const topTeammates = teammates?.top_teammates ?? []
   const worstTeammates = teammates?.worst_teammates ?? []
 
@@ -85,6 +86,40 @@ export default function PlayerProfile() {
           </div>
         ))}
       </div>
+
+      {/* Most played with */}
+      {mostPlayed.length > 0 && (
+        <div>
+          <h2 className="text-xl font-semibold mb-1">Most Played With</h2>
+          <p className="text-sm text-gray-400 mb-3">Teammates by games together</p>
+          <div className="border rounded-xl overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
+                <tr>
+                  <th className="px-4 py-3 text-left">Player</th>
+                  <th className="px-4 py-3 text-center">Games</th>
+                  <th className="px-4 py-3 text-center">Wins</th>
+                  <th className="px-4 py-3 text-center">Win %</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {mostPlayed.map(t => (
+                  <tr key={t.id} className="bg-white hover:bg-gray-50">
+                    <td className="px-4 py-3 font-semibold">
+                      <a href={`/players/${t.id}`} className="text-blue-500 hover:underline">{t.name}</a>
+                    </td>
+                    <td className="px-4 py-3 text-center font-medium">{t.games}</td>
+                    <td className="px-4 py-3 text-center text-gray-600">{t.wins}</td>
+                    <td className={`px-4 py-3 text-center font-medium ${t.win_pct >= 50 ? 'text-green-600' : 'text-red-500'}`}>
+                      {t.win_pct}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Teammate chemistry */}
       {(topTeammates.length > 0 || worstTeammates.length > 0) && (

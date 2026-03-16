@@ -143,7 +143,10 @@ def get_teammate_stats(player_id: str):
         s["losses"] = s["games"] - s["wins"]
         s["win_pct"] = round(s["wins"] / s["games"] * 100, 1) if s["games"] > 0 else 0.0
 
-    # Minimum sample size of 8 games together
+    # Most played: no minimum, just whoever you've shared the most games with
+    most_played = sorted(all_stats, key=lambda x: (-x["games"], -x["wins"]))[:5]
+
+    # Minimum sample size of 8 games together for win%-based lists
     qualified = [s for s in all_stats if s["games"] >= 8]
 
     # Top: highest win % first, then most wins as tiebreaker
@@ -151,7 +154,7 @@ def get_teammate_stats(player_id: str):
     # Worst: lowest win % first, then most losses as tiebreaker
     worst = sorted(qualified, key=lambda x: (x["win_pct"], -x["losses"]))[:5]
 
-    return {"top_teammates": top, "worst_teammates": worst}
+    return {"most_played": most_played, "top_teammates": top, "worst_teammates": worst}
 
 
 @router.get("/{player_id}")
