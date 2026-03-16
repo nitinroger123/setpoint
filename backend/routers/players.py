@@ -143,8 +143,13 @@ def get_teammate_stats(player_id: str):
         s["losses"] = s["games"] - s["wins"]
         s["win_pct"] = round(s["wins"] / s["games"] * 100, 1) if s["games"] > 0 else 0.0
 
-    top   = sorted(all_stats, key=lambda x: (-x["wins"],   -x["win_pct"]))[:5]
-    worst = sorted(all_stats, key=lambda x: (-x["losses"],  x["win_pct"]))[:5]
+    # Minimum sample size of 4 games together
+    qualified = [s for s in all_stats if s["games"] >= 4]
+
+    # Top: highest win % first, then most wins as tiebreaker
+    top   = sorted(qualified, key=lambda x: (-x["win_pct"], -x["wins"]))[:5]
+    # Worst: most losses first, then lowest win % as tiebreaker
+    worst = sorted(qualified, key=lambda x: (-x["losses"],   x["win_pct"]))[:5]
 
     return {"top_teammates": top, "worst_teammates": worst}
 
