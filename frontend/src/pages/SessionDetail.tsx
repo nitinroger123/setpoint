@@ -321,14 +321,14 @@ export default function SessionDetail() {
           {roundGameKeys.length > 0 && (
             <div>
               <h2 className="text-xl font-semibold mb-3">Round-by-Round Results</h2>
-              <div className="border rounded-xl overflow-x-auto">
-                <table className="w-full text-sm">
+              <div className="border rounded-xl overflow-hidden">
+                <table className="w-full text-sm table-fixed">
                   <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
                     <tr>
-                      <th className="px-4 py-3 text-left sticky left-0 bg-gray-50">Player</th>
+                      <th className="px-3 py-3 text-left w-24">Player</th>
                       {roundGameKeys.map(key => {
                         const [r, g] = key.split('-')
-                        return <th key={key} className="px-3 py-3 text-center whitespace-nowrap">R{r} G{g}</th>
+                        return <th key={key} className="px-1 py-3 text-center">R{r}G{g}</th>
                       })}
                     </tr>
                   </thead>
@@ -338,15 +338,15 @@ export default function SessionDetail() {
                       for (const g of p.games) gameByKey[`${g.round_number}-${g.game_number}`] = g
                       return (
                         <tr key={p.name} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                          <td className="px-4 py-3 font-semibold sticky left-0 bg-inherit whitespace-nowrap">
-                            {medals[p.place] && <span className="mr-1">{medals[p.place]}</span>}
+                          <td className="px-3 py-2.5 font-semibold truncate">
+                            {medals[p.place] && <span className="mr-0.5">{medals[p.place]}</span>}
                             {p.name}
                           </td>
                           {roundGameKeys.map(key => {
                             const g = gameByKey[key]
-                            if (!g) return <td key={key} className="px-3 py-3 text-center text-gray-300">—</td>
+                            if (!g) return <td key={key} className="px-1 py-2.5 text-center text-gray-300">—</td>
                             return (
-                              <td key={key} className={`px-3 py-3 text-center font-medium ${g.point_diff > 0 ? 'text-green-600' : g.point_diff < 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                              <td key={key} className={`px-1 py-2.5 text-center font-medium ${g.point_diff > 0 ? 'text-green-600' : g.point_diff < 0 ? 'text-red-500' : 'text-gray-400'}`}>
                                 {g.point_diff > 0 ? '+' : ''}{g.point_diff}
                               </td>
                             )
