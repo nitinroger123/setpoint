@@ -80,7 +80,7 @@ FastAPI (backend/main.py)
 Supabase (PostgreSQL)
   Tables: tournament_formats, tournament_series, players, sessions,
           session_roster, round_assignments, round_games,
-          game_results, session_standings
+          game_results, session_standings, session_media
 ```
 
 ### Two API clients on the frontend
@@ -307,6 +307,17 @@ Register it in `main.py`:
 from routers import my_resource
 app.include_router(my_resource.router, prefix="/api/things", tags=["things"])
 ```
+
+### Format constants live in `config.py`
+
+All tournament format numbers are centralized in `backend/config.py`. Import from there instead of hardcoding:
+
+```python
+from config import ROSTER_SIZE, NUM_TEAMS, TEAM_SIZE, NUM_ROUNDS, GAMES_PER_SESSION
+from config import TEAMMATE_MIN_GAMES, TEAMMATE_TOP_N, DB_PAGE_SIZE
+```
+
+If the format ever changes (e.g. 5 rounds instead of 4), change it in one place.
 
 ### When to use `fetch_all()` vs `.execute()`
 
@@ -542,6 +553,7 @@ This drives which teams play G1 and which team waits (and plays G2+G3). If you e
 | RLS enabled on every table, public read policy always present | Security by default; write access via service_role key in backend |
 | `session_standings` for leaderboard/profile queries | One clean row per player per session — avoids aggregating 8 game_results rows per player per query |
 | `round_assignments` for team membership | Decoupled from `game_results` so teams can be tracked even before scoring |
+| `session_media` for per-session photos/links | Separate table keeps media out of the sessions row; cascades on session delete |
 | Migrations numbered sequentially (`001_`, `002_`, ...) | Git history tracks schema evolution; never modify an already-run migration |
 
 ---

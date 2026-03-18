@@ -82,7 +82,8 @@ setpoint/
 │
 ├── frontend/src/
 │   ├── App.tsx                  # Router: /, /tournaments, /series/:id, /sessions/:id,
-│   │                            #         /players/:id, /director, /director/sessions/:id
+│   │                            #         /players/:id, /director, /director/sessions/:id,
+│   │                            #         /director/players
 │   ├── lib/
 │   │   ├── api.ts               # Axios client (points to VITE_API_URL)
 │   │   ├── directorApi.ts       # Axios wrapper with X-Director-Pin header from localStorage
@@ -93,7 +94,8 @@ setpoint/
 │       ├── SessionDetail.tsx    # /sessions/:id — live view or completed view
 │       ├── PlayerProfile.tsx    # /players/:id — career stats, teammate chemistry
 │       ├── Director.tsx         # /director — PIN gate + session list + create
-│       └── DirectorSession.tsx  # /director/sessions/:id — full session management
+│       ├── DirectorSession.tsx  # /director/sessions/:id — full session management
+│       └── DirectorPlayers.tsx  # /director/players — player CRUD + gender management
 │
 ├── scripts/
 │   └── backfill_round_assignments.py  # Infers historical team assignments from point diffs
@@ -103,7 +105,8 @@ setpoint/
 │   ├── 002_tournament_series.sql
 │   ├── 003_director_mode.sql    # gender on players, status on sessions, session_roster, round_assignments
 │   ├── 004_scoring.sql          # round_games table
-│   └── 005_session_standings.sql # session_standings table
+│   ├── 005_session_standings.sql # session_standings table
+│   └── 006_session_media.sql    # session_media table (photos, YouTube, links)
 │
 └── GUIDE.md
 ```
@@ -214,6 +217,19 @@ One row per player per session. Written when a session is completed. Used by lea
 | total_diff | int | |
 | place | int | 1–12 |
 
+### `session_media`
+Photos, YouTube links, and other URLs attached to a session. The featured item appears beside the standings table on the public session view.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| session_id | uuid FK | Cascades on delete |
+| url | text | Any URL — image, YouTube, or generic link |
+| caption | text | Optional label shown below the media |
+| media_type | text | Auto-detected: `image`, `youtube`, or `link` |
+| is_featured | bool | Only one per session; shown in the "Winning Team" pane |
+| created_at | timestamptz | |
+
 ### Row Level Security
 All tables have RLS enabled with **public read** policies. Writes go through the backend `service_role` key (bypasses RLS).
 
@@ -266,6 +282,7 @@ FastAPI auto-generates interactive docs at **http://localhost:8000/docs**
 /players/:id             → Player profile
 /director                → Director: PIN gate + session list
 /director/sessions/:id   → Director: session management
+/director/players        → Director: player management (add/edit/delete/gender)
 ```
 
 ### Director API (`lib/directorApi.ts`)
@@ -286,17 +303,29 @@ The PIN is read from `localStorage.getItem('directorPin')` and sent as the `X-Di
 
 ## Director Mode — Running a Session
 
+### Player Management (`/director/players`)
+
+Manage the player registry before session day:
+- **Add players** — name required; phone, email, gender optional
+- **Edit players** — click Edit on any row to update inline
+- **Delete players** — cannot delete if the player has session history (prevents data loss)
+- **Set gender** — set M/F once per player here; persists across all sessions
+
 ### Full Workflow
 
 1. **Go to `/director`** → enter PIN
-2. **Create session** → pick a date → status becomes `draft`
-3. **Add players** to the roster (search by name)
-4. **Set gender** for each player (M/F toggles) — required before assigning teams
-5. **Assign teams for Round 1** → click "Assign Round 1 Teams" → randomly splits into Aces/Kings/Queens with 2M+2F each
-6. **Activate session** → click "Activate" → session status becomes `active`, public view shows live standings
+2. **Set up players** → click "Players" button → add/edit players and set gender in Player Management
+3. **Create session** → pick a date and optional series → status becomes `draft`
+4. **Add players** to the session roster (select from player list)
+5. **Assign teams for Round 1** → click "Assign Teams" → auto-shuffles into Aces/Kings/Queens
+   - If roster is 6M+6F: exactly 2M+2F per team
+   - If roster is uneven (e.g. 7F+5M): guarantees at least 1M+1F per team, fills randomly
+   - **Manual swaps**: click any player in the team grid to select, click another to swap teams; hit "Save Teams" to persist
+6. **Activate session** → click "Start Session" → status becomes `active`, public view shows live standings
 7. **Score games**: for each round, score G1 first → G2/G3 matchups appear automatically based on who won G1
-8. **Assign teams for each subsequent round** as the round starts (rounds 2–4)
-9. **Complete session** → click "End Session" → finalizes standings, writes session_standings + game_results, status → `completed`
+8. **Assign teams for each subsequent round** as the round starts (rounds 2–4); re-shuffle or swap manually as needed
+9. **Add media** → paste image URLs, YouTube links, or any other URL in the "Session Media" panel; mark one as Featured to show it beside the standings on the public view
+10. **Complete session** → click "End Session" → finalizes standings, writes session_standings + game_results, status → `completed`
 
 ### Round Schedule (hardcoded in `director.py`)
 | Round | G1 Matchup | Waiting Team |
@@ -463,11 +492,11 @@ Historical sessions imported before `status` column was added default to `draft`
 ---
 
 ### Teams won't assign
-**Symptom:** "Gender not set for: PlayerA, PlayerB..."
-**Fix:** All 12 roster players must have gender set (M or F) before teams can be assigned. Set gender via the M/F toggles next to each player's name.
+**Symptom:** "Gender not set for: PlayerA, PlayerB..." with a link to Player Management.
+**Fix:** All roster players must have gender set before teams can be assigned. Go to `/director/players` and set M/F for each player — it persists across all sessions.
 
-**Symptom:** "Need exactly 6 men and 6 women."
-**Fix:** The roster must have exactly 6M + 6F. Check current counts in the roster section and add/remove players accordingly.
+**Symptom:** "Need at least 3M + 3F to assign teams."
+**Fix:** You need at least 1 player of each gender per team (3 teams = minimum 3M + 3F). The roster doesn't need to be exactly 6/6 — any split works as long as you have at least 3 of each gender. If you have fewer than 3 of one gender, add a ghost player and assign them the minority gender.
 
 ---
 
