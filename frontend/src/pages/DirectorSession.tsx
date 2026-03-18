@@ -263,13 +263,6 @@ export default function DirectorSession() {
     setSession(s => s ? { ...s, roster: s.roster.filter(p => p.id !== playerId) } : s)
   }
 
-  async function setGender(player: Player, gender: 'm' | 'f') {
-    const newGender = player.gender === gender ? null : gender
-    await directorApi.put(`/api/director/players/${player.id}/gender`, { gender: newGender })
-    setSession(s => s ? { ...s, roster: s.roster.map(p => p.id === player.id ? { ...p, gender: newGender } : p) } : s)
-    setAllPlayers(prev => prev.map(p => p.id === player.id ? { ...p, gender: newGender } : p))
-  }
-
   async function assignTeams(round: number) {
     if (!session) return
     setAssigning(round)
@@ -565,18 +558,14 @@ export default function DirectorSession() {
                 {[...session.roster].sort((a, b) => a.name.localeCompare(b.name)).map(p => (
                   <tr key={p.id} className="bg-white">
                     <td className="px-4 py-3 font-medium">{p.name}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-1 justify-center">
-                        {(['m', 'f'] as const).map(g => (
-                          <button key={g} onClick={() => setGender(p, g)}
-                            className={`px-2 py-0.5 rounded text-xs font-semibold border transition ${
-                              p.gender === g ? GENDER_COLOR[g] + ' border-transparent' : 'text-gray-300 border-gray-200 hover:border-gray-400 hover:text-gray-500'
-                            }`}
-                          >
-                            {g.toUpperCase()}
-                          </button>
-                        ))}
-                      </div>
+                    <td className="px-4 py-3 text-center">
+                      {p.gender ? (
+                        <span className={`text-xs px-2 py-0.5 rounded font-semibold ${GENDER_COLOR[p.gender]}`}>
+                          {p.gender.toUpperCase()}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-orange-400">unset</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <button onClick={() => removePlayer(p.id)} className="text-gray-300 hover:text-red-500 text-xs">Remove</button>
@@ -589,9 +578,14 @@ export default function DirectorSession() {
         )}
         {!canAssign && session.roster.length > 0 && (
           <p className="text-sm text-orange-500 mt-2">
-            {ungendered.length > 0
-              ? `Set gender for ${ungendered.length} player${ungendered.length > 1 ? 's' : ''} before assigning teams.`
-              : `Need at least 3M + 3F to assign teams (have ${men.length}M / ${women.length}F).`}
+            {ungendered.length > 0 ? (
+              <>
+                {ungendered.length} player{ungendered.length > 1 ? 's have' : ' has'} no gender set.{' '}
+                <Link to="/director/players" className="underline hover:text-orange-700">Set in Player Management →</Link>
+              </>
+            ) : (
+              `Need at least 3M + 3F to assign teams (have ${men.length}M / ${women.length}F).`
+            )}
           </p>
         )}
       </div>
