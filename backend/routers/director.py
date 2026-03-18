@@ -471,7 +471,8 @@ def add_media(session_id: str, body: dict, _: None = Depends(require_director)):
         url_lower = url.lower()
         if "youtube.com" in url_lower or "youtu.be" in url_lower:
             media_type = "youtube"
-        elif any(url_lower.split("?")[0].endswith(ext) for ext in (".jpg", ".jpeg", ".png", ".gif", ".webp")):
+        elif any(url_lower.split("?")[0].endswith(ext) for ext in (".jpg", ".jpeg", ".png", ".gif", ".webp")) \
+                or "i.imgur.com" in url_lower:
             media_type = "image"
         else:
             media_type = "link"
