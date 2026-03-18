@@ -56,7 +56,26 @@ function MediaEmbed({ item }: { item: SessionMedia }) {
     )
   }
   if (item.media_type === 'image') {
-    return <img src={item.url} alt={item.caption ?? ''} className="w-full rounded-lg object-cover max-h-80" />
+    return (
+      <a href={item.url} target="_blank" rel="noreferrer">
+        <img
+          src={item.url}
+          alt={item.caption ?? ''}
+          className="w-full rounded-lg object-cover max-h-80"
+          onError={e => {
+            const el = e.currentTarget
+            el.style.display = 'none'
+            const link = document.createElement('a')
+            link.href = item.url
+            link.target = '_blank'
+            link.rel = 'noreferrer'
+            link.textContent = item.caption ?? 'View photo →'
+            link.className = 'text-blue-500 underline text-sm'
+            el.parentElement?.appendChild(link)
+          }}
+        />
+      </a>
+    )
   }
   return <a href={item.url} target="_blank" rel="noreferrer" className="text-blue-500 underline break-all">{item.caption ?? item.url}</a>
 }
