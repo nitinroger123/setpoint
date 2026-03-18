@@ -476,7 +476,7 @@ def add_media(session_id: str, body: dict, _: None = Depends(require_director)):
     res = sb.table("session_media").insert({
         "session_id": session_id,
         "url": url,
-        "caption": body.get("caption", "").strip() or None,
+        "caption": (body.get("caption") or "").strip() or None,
         "media_type": media_type,
         "is_featured": False,
     }).execute()
