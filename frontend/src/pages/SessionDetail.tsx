@@ -25,6 +25,42 @@ interface LiveStanding {
 interface Player { id: string; name: string; gender: string | null }
 interface TeamAssignments { Aces: Player[]; Kings: Player[]; Queens: Player[] }
 
+// ── Media helpers ─────────────────────────────────────────────────────────────
+
+interface SessionMedia {
+  id: string
+  url: string
+  caption?: string | null
+  media_type: 'image' | 'youtube' | 'link'
+  is_featured: boolean
+}
+
+function youtubeId(url: string): string | null {
+  const m = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
+  return m ? m[1] : null
+}
+
+function MediaEmbed({ item }: { item: SessionMedia }) {
+  if (item.media_type === 'youtube') {
+    const vid = youtubeId(item.url)
+    if (!vid) return <a href={item.url} target="_blank" rel="noreferrer" className="text-blue-500 underline">{item.url}</a>
+    return (
+      <div className="aspect-video w-full">
+        <iframe
+          src={`https://www.youtube.com/embed/${vid}`}
+          className="w-full h-full rounded-lg"
+          allowFullScreen
+          title={item.caption ?? 'Video'}
+        />
+      </div>
+    )
+  }
+  if (item.media_type === 'image') {
+    return <img src={item.url} alt={item.caption ?? ''} className="w-full rounded-lg object-cover max-h-80" />
+  }
+  return <a href={item.url} target="_blank" rel="noreferrer" className="text-blue-500 underline break-all">{item.caption ?? item.url}</a>
+}
+
 // ── Helpers for completed sessions ───────────────────────────────────────────
 
 function getPlayerSummary(results: GameResult[]) {
@@ -273,6 +309,9 @@ export default function SessionDetail() {
   const roundGameKeys = getRoundGameKeys(players)
   const assignments: Record<string, TeamAssignments> = session.round_assignments ?? {}
   const hasAssignments = Object.keys(assignments).length > 0
+  const media: SessionMedia[] = session.media ?? []
+  const featured = media.find(m => m.is_featured)
+  const otherMedia = media.filter(m => !m.is_featured)
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-8">
@@ -286,33 +325,61 @@ export default function SessionDetail() {
         <p className="text-gray-500 capitalize">{session.format_id?.replace(/-/g, ' ')}</p>
       </div>
 
-      <div>
-        <h2 className="text-xl font-semibold mb-3">Standings</h2>
-        <div className="border rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-600 uppercase text-xs">
-              <tr>
-                <th className="px-4 py-3 text-left">Place</th>
-                <th className="px-4 py-3 text-left">Player</th>
-                <th className="px-4 py-3 text-center">Wins</th>
-                <th className="px-4 py-3 text-center">Point Diff</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {players.map(p => (
-                <tr key={p.name} className={p.place <= 4 ? 'bg-yellow-50' : 'bg-white'}>
-                  <td className="px-4 py-3 font-medium">{medals[p.place] || p.place}</td>
-                  <td className="px-4 py-3 font-semibold">{p.name}</td>
-                  <td className="px-4 py-3 text-center">{p.wins}</td>
-                  <td className={`px-4 py-3 text-center font-medium ${p.diff > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                    {p.diff > 0 ? '+' : ''}{p.diff}
-                  </td>
+      {/* Standings + featured media side by side */}
+      <div className={`grid gap-6 ${featured ? 'lg:grid-cols-2' : 'grid-cols-1'}`}>
+        <div>
+          <h2 className="text-xl font-semibold mb-3">Standings</h2>
+          <div className="border rounded-xl overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-gray-600 uppercase text-xs">
+                <tr>
+                  <th className="px-4 py-3 text-left">Place</th>
+                  <th className="px-4 py-3 text-left">Player</th>
+                  <th className="px-4 py-3 text-center">Wins</th>
+                  <th className="px-4 py-3 text-center">Point Diff</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y">
+                {players.map(p => (
+                  <tr key={p.name} className={p.place <= 4 ? 'bg-yellow-50' : 'bg-white'}>
+                    <td className="px-4 py-3 font-medium">{medals[p.place] || p.place}</td>
+                    <td className="px-4 py-3 font-semibold">{p.name}</td>
+                    <td className="px-4 py-3 text-center">{p.wins}</td>
+                    <td className={`px-4 py-3 text-center font-medium ${p.diff > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                      {p.diff > 0 ? '+' : ''}{p.diff}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
+
+        {featured && (
+          <div>
+            <h2 className="text-xl font-semibold mb-3">Winning Team</h2>
+            <div className="border rounded-xl p-4 bg-white space-y-3">
+              <MediaEmbed item={featured} />
+              {featured.caption && <p className="text-sm text-gray-600 text-center">{featured.caption}</p>}
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Additional media gallery */}
+      {otherMedia.length > 0 && (
+        <div>
+          <h2 className="text-xl font-semibold mb-3">Media</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {otherMedia.map(item => (
+              <div key={item.id} className="border rounded-xl p-3 bg-white space-y-2">
+                <MediaEmbed item={item} />
+                {item.caption && <p className="text-xs text-gray-500 text-center">{item.caption}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Round-by-round results + Team assignments side by side */}
       {(roundGameKeys.length > 0 || hasAssignments) && (

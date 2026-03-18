@@ -453,6 +453,59 @@ def complete_session(session_id: str, _: None = Depends(require_director)):
     return {"ok": True, "players_finalized": len(standings)}
 
 
+@router.get("/sessions/{session_id}/media")
+def list_media(session_id: str, _: None = Depends(require_director)):
+    sb = get_supabase()
+    return sb.table("session_media").select("*").eq("session_id", session_id).order("created_at").execute().data
+
+
+@router.post("/sessions/{session_id}/media")
+def add_media(session_id: str, body: dict, _: None = Depends(require_director)):
+    url = body.get("url", "").strip()
+    if not url:
+        raise HTTPException(status_code=400, detail="url is required")
+    # Auto-detect media type from URL
+    url_lower = url.lower()
+    if "youtube.com" in url_lower or "youtu.be" in url_lower:
+        media_type = "youtube"
+    elif any(url_lower.split("?")[0].endswith(ext) for ext in (".jpg", ".jpeg", ".png", ".gif", ".webp")):
+        media_type = "image"
+    else:
+        media_type = "link"
+    sb = get_supabase()
+    res = sb.table("session_media").insert({
+        "session_id": session_id,
+        "url": url,
+        "caption": body.get("caption", "").strip() or None,
+        "media_type": media_type,
+        "is_featured": False,
+    }).execute()
+    return res.data[0]
+
+
+@router.patch("/sessions/{session_id}/media/{media_id}/feature")
+def feature_media(session_id: str, media_id: str, _: None = Depends(require_director)):
+    sb = get_supabase()
+    # Only one item can be featured per session
+    sb.table("session_media").update({"is_featured": False}).eq("session_id", session_id).execute()
+    res = sb.table("session_media").update({"is_featured": True}).eq("id", media_id).execute()
+    return res.data[0]
+
+
+@router.patch("/sessions/{session_id}/media/{media_id}/unfeature")
+def unfeature_media(session_id: str, media_id: str, _: None = Depends(require_director)):
+    sb = get_supabase()
+    res = sb.table("session_media").update({"is_featured": False}).eq("id", media_id).execute()
+    return res.data[0]
+
+
+@router.delete("/sessions/{session_id}/media/{media_id}")
+def delete_media(session_id: str, media_id: str, _: None = Depends(require_director)):
+    sb = get_supabase()
+    sb.table("session_media").delete().eq("id", media_id).execute()
+    return {"ok": True}
+
+
 @router.delete("/sessions/{session_id}")
 def delete_session(session_id: str, _: None = Depends(require_director)):
     """Delete a session and all associated data (cascades to roster, assignments, games, standings)."""

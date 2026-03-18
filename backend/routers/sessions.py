@@ -53,12 +53,15 @@ def get_session(session_id: str):
 
         live_standings = compute_live_standings(session_id, sb)
 
+        media = sb.table("session_media").select("*").eq("session_id", session_id).order("created_at").execute().data
+
         return {
             **session.data,
             "results": [],
             "round_games": round_games,
             "round_assignments": assignments,
             "live_standings": live_standings,
+            "media": media,
         }
 
     # Completed or draft: return finalized game_results + round_assignments
@@ -78,7 +81,9 @@ def get_session(session_id: str):
             assignments[rn] = {"Aces": [], "Kings": [], "Queens": []}
         assignments[rn][team].append(row["players"])
 
-    return {**session.data, "results": results.data, "round_assignments": assignments}
+    media = sb.table("session_media").select("*").eq("session_id", session_id).order("created_at").execute().data
+
+    return {**session.data, "results": results.data, "round_assignments": assignments, "media": media}
 
 @router.post("/", response_model=SessionOut)
 def create_session(session: SessionCreate):

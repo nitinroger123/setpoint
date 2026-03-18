@@ -3,6 +3,14 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import api from '../lib/api'
 import directorApi from '../lib/directorApi'
 
+interface SessionMedia {
+  id: string
+  url: string
+  caption?: string | null
+  media_type: 'image' | 'youtube' | 'link'
+  is_featured: boolean
+}
+
 interface Player {
   id: string
   name: string
@@ -228,6 +236,10 @@ export default function DirectorSession() {
   const [pendingAssignments, setPendingAssignments] = useState<Record<number, TeamAssignments>>({})
   const [selectedSwap, setSelectedSwap] = useState<{ playerId: string; team: string } | null>(null)
   const [savingTeams, setSavingTeams] = useState(false)
+  const [media, setMedia] = useState<SessionMedia[]>([])
+  const [mediaUrl, setMediaUrl] = useState('')
+  const [mediaCaption, setMediaCaption] = useState('')
+  const [addingMedia, setAddingMedia] = useState(false)
   const navigate = useNavigate()
 
   async function reload() {
@@ -239,9 +251,11 @@ export default function DirectorSession() {
     Promise.all([
       directorApi.get(`/api/director/sessions/${id}`),
       api.get('/api/players/'),
-    ]).then(([sessRes, playersRes]) => {
+      directorApi.get(`/api/director/sessions/${id}/media`),
+    ]).then(([sessRes, playersRes, mediaRes]) => {
       setSession(sessRes.data)
       setAllPlayers(playersRes.data)
+      setMedia(mediaRes.data)
       setLoading(false)
     })
   }, [id])
@@ -344,6 +358,45 @@ export default function DirectorSession() {
   const r1Assigned = !!session.assignments[1]
   const isDraft    = session.status === 'draft'
   const isActive   = session.status === 'active'
+
+  async function addMedia(e: React.FormEvent) {
+    e.preventDefault()
+    if (!mediaUrl.trim() || !session) return
+    setAddingMedia(true)
+    try {
+      const res = await directorApi.post(`/api/director/sessions/${session.id}/media`, {
+        url: mediaUrl.trim(),
+        caption: mediaCaption.trim() || null,
+      })
+      setMedia(prev => [...prev, res.data])
+      setMediaUrl('')
+      setMediaCaption('')
+    } catch {
+      setError('Failed to add media')
+    } finally {
+      setAddingMedia(false)
+    }
+  }
+
+  async function featureMedia(mediaId: string, featured: boolean) {
+    if (!session) return
+    const endpoint = featured
+      ? `/api/director/sessions/${session.id}/media/${mediaId}/unfeature`
+      : `/api/director/sessions/${session.id}/media/${mediaId}/feature`
+    const res = await directorApi.patch(endpoint)
+    if (!featured) {
+      // Unfeature all others locally, feature this one
+      setMedia(prev => prev.map(m => ({ ...m, is_featured: m.id === mediaId })))
+    } else {
+      setMedia(prev => prev.map(m => m.id === mediaId ? res.data : m))
+    }
+  }
+
+  async function deleteMedia(mediaId: string) {
+    if (!session) return
+    await directorApi.delete(`/api/director/sessions/${session.id}/media/${mediaId}`)
+    setMedia(prev => prev.filter(m => m.id !== mediaId))
+  }
 
   // Displayed assignments: pending overrides saved
   function getAssignments(round: number): TeamAssignments | undefined {
@@ -695,6 +748,73 @@ export default function DirectorSession() {
                 />
               ))}
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Media ── */}
+      <div>
+        <h2 className="text-xl font-semibold mb-3">Session Media</h2>
+
+        <form onSubmit={addMedia} className="flex gap-2 mb-4 flex-wrap">
+          <input
+            value={mediaUrl}
+            onChange={e => setMediaUrl(e.target.value)}
+            placeholder="Paste URL (image, YouTube, or any link)…"
+            className="flex-1 min-w-48 border rounded-lg px-3 py-2 text-sm"
+            required
+          />
+          <input
+            value={mediaCaption}
+            onChange={e => setMediaCaption(e.target.value)}
+            placeholder="Caption (optional)"
+            className="w-48 border rounded-lg px-3 py-2 text-sm"
+          />
+          <button
+            type="submit"
+            disabled={addingMedia || !mediaUrl.trim()}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-40"
+          >
+            {addingMedia ? 'Adding…' : 'Add'}
+          </button>
+        </form>
+
+        {media.length === 0 ? (
+          <div className="text-center py-8 text-gray-400 border rounded-xl text-sm">No media yet. Paste a URL above to add photos, YouTube links, or other content.</div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {media.map(item => (
+              <div key={item.id} className={`border rounded-xl p-3 bg-white space-y-2 ${item.is_featured ? 'ring-2 ring-yellow-400' : ''}`}>
+                {item.media_type === 'image' && (
+                  <img src={item.url} alt={item.caption ?? ''} className="w-full rounded-lg object-cover max-h-40" />
+                )}
+                {item.media_type === 'youtube' && (
+                  <div className="text-xs text-gray-400 bg-gray-50 rounded px-2 py-1 truncate">▶ {item.url}</div>
+                )}
+                {item.media_type === 'link' && (
+                  <div className="text-xs text-blue-500 truncate">{item.url}</div>
+                )}
+                {item.caption && <p className="text-xs text-gray-600">{item.caption}</p>}
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={() => featureMedia(item.id, item.is_featured)}
+                    className={`text-xs px-2 py-1 rounded border flex-1 transition ${
+                      item.is_featured
+                        ? 'bg-yellow-50 border-yellow-300 text-yellow-700 font-semibold'
+                        : 'text-gray-400 border-gray-200 hover:border-yellow-300 hover:text-yellow-600'
+                    }`}
+                  >
+                    {item.is_featured ? '★ Featured' : '☆ Feature'}
+                  </button>
+                  <button
+                    onClick={() => deleteMedia(item.id)}
+                    className="text-xs text-gray-300 hover:text-red-500 px-2 py-1 border rounded border-gray-200 hover:border-red-300"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
