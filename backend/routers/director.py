@@ -465,13 +465,16 @@ def add_media(session_id: str, body: dict, _: None = Depends(require_director)):
     if not url:
         raise HTTPException(status_code=400, detail="url is required")
     # Auto-detect media type from URL
-    url_lower = url.lower()
-    if "youtube.com" in url_lower or "youtu.be" in url_lower:
-        media_type = "youtube"
-    elif any(url_lower.split("?")[0].endswith(ext) for ext in (".jpg", ".jpeg", ".png", ".gif", ".webp")):
-        media_type = "image"
-    else:
-        media_type = "link"
+    # Allow manual override; otherwise auto-detect from URL
+    media_type = body.get("media_type", "").strip()
+    if media_type not in ("image", "youtube", "link"):
+        url_lower = url.lower()
+        if "youtube.com" in url_lower or "youtu.be" in url_lower:
+            media_type = "youtube"
+        elif any(url_lower.split("?")[0].endswith(ext) for ext in (".jpg", ".jpeg", ".png", ".gif", ".webp")):
+            media_type = "image"
+        else:
+            media_type = "link"
     is_featured = bool(body.get("is_featured", False))
     sb = get_supabase()
     if is_featured:
@@ -483,6 +486,17 @@ def add_media(session_id: str, body: dict, _: None = Depends(require_director)):
         "media_type": media_type,
         "is_featured": is_featured,
     }).execute()
+    return res.data[0]
+
+
+@router.patch("/sessions/{session_id}/media/{media_id}/type")
+def set_media_type(session_id: str, media_id: str, body: dict, _: None = Depends(require_director)):
+    """Update the media_type of an existing media item."""
+    media_type = body.get("media_type", "").strip()
+    if media_type not in ("image", "youtube", "link"):
+        raise HTTPException(status_code=400, detail="media_type must be 'image', 'youtube', or 'link'")
+    sb = get_supabase()
+    res = sb.table("session_media").update({"media_type": media_type}).eq("id", media_id).execute()
     return res.data[0]
 
 

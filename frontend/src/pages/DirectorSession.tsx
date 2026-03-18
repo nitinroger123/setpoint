@@ -240,6 +240,7 @@ export default function DirectorSession() {
   const [mediaUrl, setMediaUrl] = useState('')
   const [mediaCaption, setMediaCaption] = useState('')
   const [mediaFeatured, setMediaFeatured] = useState(false)
+  const [mediaType, setMediaType] = useState('auto')
   const [addingMedia, setAddingMedia] = useState(false)
   const navigate = useNavigate()
 
@@ -373,11 +374,13 @@ export default function DirectorSession() {
         url: mediaUrl.trim(),
         caption: mediaCaption.trim() || null,
         is_featured: mediaFeatured,
+        ...(mediaType !== 'auto' && { media_type: mediaType }),
       })
       setMedia(prev => [...prev, res.data])
       setMediaUrl('')
       setMediaCaption('')
       setMediaFeatured(false)
+      setMediaType('auto')
     } catch {
       setError('Failed to add media')
     } finally {
@@ -777,6 +780,16 @@ export default function DirectorSession() {
             placeholder="Caption (optional)"
             className="w-48 border rounded-lg px-3 py-2 text-sm"
           />
+          <select
+            value={mediaType}
+            onChange={e => setMediaType(e.target.value)}
+            className="border rounded-lg px-3 py-2 text-sm"
+          >
+            <option value="auto">Auto-detect</option>
+            <option value="image">Image</option>
+            <option value="youtube">YouTube</option>
+            <option value="link">Link</option>
+          </select>
           <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer whitespace-nowrap">
             <input
               type="checkbox"
@@ -811,7 +824,20 @@ export default function DirectorSession() {
                   <div className="text-xs text-blue-500 truncate">{item.url}</div>
                 )}
                 {item.caption && <p className="text-xs text-gray-600">{item.caption}</p>}
-                <div className="flex gap-2 pt-1">
+                <div className="flex gap-2 pt-1 flex-wrap">
+                  <select
+                    value={item.media_type}
+                    onChange={async e => {
+                      const t = e.target.value
+                      await directorApi.patch(`/api/director/sessions/${session!.id}/media/${item.id}/type`, { media_type: t })
+                      setMedia(prev => prev.map(m => m.id === item.id ? { ...m, media_type: t as SessionMedia['media_type'] } : m))
+                    }}
+                    className="text-xs border rounded px-1 py-1"
+                  >
+                    <option value="image">Image</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="link">Link</option>
+                  </select>
                   <button
                     onClick={() => featureMedia(item.id, item.is_featured)}
                     className={`text-xs px-2 py-1 rounded border flex-1 transition ${
