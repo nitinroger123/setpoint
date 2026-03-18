@@ -239,6 +239,7 @@ export default function DirectorSession() {
   const [media, setMedia] = useState<SessionMedia[]>([])
   const [mediaUrl, setMediaUrl] = useState('')
   const [mediaCaption, setMediaCaption] = useState('')
+  const [mediaFeatured, setMediaFeatured] = useState(false)
   const [addingMedia, setAddingMedia] = useState(false)
   const navigate = useNavigate()
 
@@ -364,13 +365,19 @@ export default function DirectorSession() {
     if (!mediaUrl.trim() || !session) return
     setAddingMedia(true)
     try {
+      // If featuring this item, unfeature all existing ones first
+      if (mediaFeatured) {
+        setMedia(prev => prev.map(m => ({ ...m, is_featured: false })))
+      }
       const res = await directorApi.post(`/api/director/sessions/${session.id}/media`, {
         url: mediaUrl.trim(),
         caption: mediaCaption.trim() || null,
+        is_featured: mediaFeatured,
       })
       setMedia(prev => [...prev, res.data])
       setMediaUrl('')
       setMediaCaption('')
+      setMediaFeatured(false)
     } catch {
       setError('Failed to add media')
     } finally {
@@ -756,7 +763,7 @@ export default function DirectorSession() {
       <div>
         <h2 className="text-xl font-semibold mb-3">Session Media</h2>
 
-        <form onSubmit={addMedia} className="flex gap-2 mb-4 flex-wrap">
+        <form onSubmit={addMedia} className="flex gap-2 mb-4 flex-wrap items-center">
           <input
             value={mediaUrl}
             onChange={e => setMediaUrl(e.target.value)}
@@ -770,6 +777,15 @@ export default function DirectorSession() {
             placeholder="Caption (optional)"
             className="w-48 border rounded-lg px-3 py-2 text-sm"
           />
+          <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer whitespace-nowrap">
+            <input
+              type="checkbox"
+              checked={mediaFeatured}
+              onChange={e => setMediaFeatured(e.target.checked)}
+              className="rounded"
+            />
+            Feature
+          </label>
           <button
             type="submit"
             disabled={addingMedia || !mediaUrl.trim()}

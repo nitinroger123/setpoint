@@ -472,13 +472,16 @@ def add_media(session_id: str, body: dict, _: None = Depends(require_director)):
         media_type = "image"
     else:
         media_type = "link"
+    is_featured = bool(body.get("is_featured", False))
     sb = get_supabase()
+    if is_featured:
+        sb.table("session_media").update({"is_featured": False}).eq("session_id", session_id).execute()
     res = sb.table("session_media").insert({
         "session_id": session_id,
         "url": url,
         "caption": (body.get("caption") or "").strip() or None,
         "media_type": media_type,
-        "is_featured": False,
+        "is_featured": is_featured,
     }).execute()
     return res.data[0]
 
