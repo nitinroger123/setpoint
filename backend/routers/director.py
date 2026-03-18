@@ -3,7 +3,7 @@ import random
 from fastapi import APIRouter, HTTPException, Depends, Header
 from database import get_supabase
 from standings_helper import compute_live_standings
-from config import ROSTER_SIZE, NUM_ROUNDS, MEN_PER_SESSION, WOMEN_PER_SESSION
+from config import ROSTER_SIZE, NUM_TEAMS, TEAM_SIZE, MIN_GENDER_PER_TEAM, NUM_ROUNDS
 
 router = APIRouter()
 
@@ -249,10 +249,11 @@ def assign_teams(session_id: str, round_number: int, _: None = Depends(require_d
             status_code=400,
             detail=f"Gender not set for: {names}. Please set gender before assigning teams."
         )
-    if len(men) != MEN_PER_SESSION or len(women) != WOMEN_PER_SESSION:
+    min_gender = NUM_TEAMS * MIN_GENDER_PER_TEAM
+    if len(men) < min_gender or len(women) < min_gender:
         raise HTTPException(
             status_code=400,
-            detail=f"Need exactly {MEN_PER_SESSION} men and {WOMEN_PER_SESSION} women. Currently: {len(men)}M / {len(women)}F."
+            detail=f"Need at least {min_gender} men and {min_gender} women to guarantee 1 of each per team. Currently: {len(men)}M / {len(women)}F."
         )
 
     random.shuffle(men)
@@ -260,20 +261,66 @@ def assign_teams(session_id: str, round_number: int, _: None = Depends(require_d
 
     team_names = ["Aces", "Kings", "Queens"]
     records = []
-    for i, team in enumerate(team_names):
-        for player in men[i*2:(i+1)*2] + women[i*2:(i+1)*2]:
-            records.append({
-                "session_id": session_id,
-                "round_number": round_number,
-                "player_id": player["id"],
-                "team": team,
-            })
+
+    if len(men) % NUM_TEAMS == 0 and len(women) % NUM_TEAMS == 0:
+        # Even split (e.g. 6M+6F → 2M+2F per team): distribute exactly evenly
+        m_per_team = len(men) // NUM_TEAMS
+        f_per_team = len(women) // NUM_TEAMS
+        for i, team in enumerate(team_names):
+            team_players = men[i*m_per_team:(i+1)*m_per_team] + women[i*f_per_team:(i+1)*f_per_team]
+            for player in team_players:
+                records.append({
+                    "session_id": session_id,
+                    "round_number": round_number,
+                    "player_id": player["id"],
+                    "team": team,
+                })
+    else:
+        # Uneven split (e.g. 7F+5M): guarantee 1 of each gender per team, fill rest randomly
+        guaranteed_m = men[:NUM_TEAMS]
+        guaranteed_f = women[:NUM_TEAMS]
+        remaining = men[NUM_TEAMS:] + women[NUM_TEAMS:]
+        random.shuffle(remaining)
+        extras_per_team = TEAM_SIZE - (MIN_GENDER_PER_TEAM * 2)
+        for i, team in enumerate(team_names):
+            team_players = (
+                [guaranteed_m[i], guaranteed_f[i]]
+                + remaining[i * extras_per_team:(i + 1) * extras_per_team]
+            )
+            for player in team_players:
+                records.append({
+                    "session_id": session_id,
+                    "round_number": round_number,
+                    "player_id": player["id"],
+                    "team": team,
+                })
 
     sb.table("round_assignments") \
         .delete() \
         .eq("session_id", session_id) \
         .eq("round_number", round_number) \
         .execute()
+    sb.table("round_assignments").insert(records).execute()
+    return records
+
+
+@router.post("/sessions/{session_id}/rounds/{round_number}/set-teams")
+def set_teams(session_id: str, round_number: int, body: dict, _: None = Depends(require_director)):
+    """Save a manually arranged team assignment. Expects {assignments: [{player_id, team}]}."""
+    assignments = body.get("assignments", [])
+    if not assignments:
+        raise HTTPException(status_code=400, detail="No assignments provided")
+    valid_teams = {"Aces", "Kings", "Queens"}
+    for a in assignments:
+        if a.get("team") not in valid_teams:
+            raise HTTPException(status_code=400, detail=f"Invalid team: {a.get('team')}")
+    sb = get_supabase()
+    records = [
+        {"session_id": session_id, "round_number": round_number,
+         "player_id": a["player_id"], "team": a["team"]}
+        for a in assignments
+    ]
+    sb.table("round_assignments").delete().eq("session_id", session_id).eq("round_number", round_number).execute()
     sb.table("round_assignments").insert(records).execute()
     return records
 

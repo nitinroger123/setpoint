@@ -2,8 +2,9 @@
 # Change these if the format rules ever change.
 
 ROSTER_SIZE        = 12   # Total players per session
-MEN_PER_SESSION    = 6    # Required men on roster
-WOMEN_PER_SESSION  = 6    # Required women on roster
+NUM_TEAMS          = 3    # Teams per session (Aces, Kings, Queens)
+TEAM_SIZE          = ROSTER_SIZE // NUM_TEAMS  # Players per team (4)
+MIN_GENDER_PER_TEAM = 1   # Minimum players of each gender per team
 NUM_ROUNDS         = 4    # Rounds per session
 GAMES_PER_SESSION  = 8    # Games each player plays (NUM_ROUNDS × 2)
 

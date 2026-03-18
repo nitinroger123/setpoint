@@ -225,6 +225,9 @@ export default function DirectorSession() {
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [activeRound, setActiveRound] = useState(1)
+  const [pendingAssignments, setPendingAssignments] = useState<Record<number, TeamAssignments>>({})
+  const [selectedSwap, setSelectedSwap] = useState<{ playerId: string; team: string } | null>(null)
+  const [savingTeams, setSavingTeams] = useState(false)
   const navigate = useNavigate()
 
   async function reload() {
@@ -274,6 +277,8 @@ export default function DirectorSession() {
     try {
       await directorApi.post(`/api/director/sessions/${session.id}/rounds/${round}/assign-teams`)
       await reload()
+      setPendingAssignments(prev => { const n = { ...prev }; delete n[round]; return n })
+      setSelectedSwap(null)
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
       setError(detail ?? 'Assignment failed')
@@ -341,10 +346,73 @@ export default function DirectorSession() {
   const men        = session.roster.filter(p => p.gender === 'm')
   const women      = session.roster.filter(p => p.gender === 'f')
   const ungendered = session.roster.filter(p => !p.gender)
-  const canAssign  = men.length === 6 && women.length === 6
+  const MIN_PER_GENDER = 3  // need at least 1 of each gender per team (3 teams)
+  const canAssign  = ungendered.length === 0 && men.length >= MIN_PER_GENDER && women.length >= MIN_PER_GENDER
   const r1Assigned = !!session.assignments[1]
   const isDraft    = session.status === 'draft'
   const isActive   = session.status === 'active'
+
+  // Displayed assignments: pending overrides saved
+  function getAssignments(round: number): TeamAssignments | undefined {
+    return pendingAssignments[round] ?? session?.assignments[round]
+  }
+
+  function handlePlayerClick(playerId: string, team: string) {
+    if (!selectedSwap) {
+      setSelectedSwap({ playerId, team })
+      return
+    }
+    if (selectedSwap.playerId === playerId) {
+      setSelectedSwap(null)
+      return
+    }
+    // Swap the two players between their teams
+    const current = getAssignments(activeRound)!
+    const newAssignments: TeamAssignments = {
+      Aces:   [...current.Aces],
+      Kings:  [...current.Kings],
+      Queens: [...current.Queens],
+    }
+    const teamA = selectedSwap.team as keyof TeamAssignments
+    const teamB = team as keyof TeamAssignments
+    const playerA = newAssignments[teamA].find(p => p.id === selectedSwap.playerId)!
+    const playerB = newAssignments[teamB].find(p => p.id === playerId)!
+    newAssignments[teamA] = newAssignments[teamA].filter(p => p.id !== selectedSwap.playerId)
+    newAssignments[teamA].push(playerB)
+    newAssignments[teamB] = newAssignments[teamB].filter(p => p.id !== playerId)
+    newAssignments[teamB].push(playerA)
+    setPendingAssignments(prev => ({ ...prev, [activeRound]: newAssignments }))
+    setSelectedSwap(null)
+  }
+
+  async function saveTeams() {
+    const assignments = getAssignments(activeRound)
+    if (!assignments || !session) return
+    setSavingTeams(true)
+    setError(null)
+    try {
+      const flat = TEAMS.flatMap(team =>
+        assignments[team].map(p => ({ player_id: p.id, team }))
+      )
+      await directorApi.post(
+        `/api/director/sessions/${session.id}/rounds/${activeRound}/set-teams`,
+        { assignments: flat }
+      )
+      // Merge pending into session assignments
+      setSession(s => s ? { ...s, assignments: { ...s.assignments, [activeRound]: assignments } } : s)
+      setPendingAssignments(prev => { const n = { ...prev }; delete n[activeRound]; return n })
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setError(detail ?? 'Failed to save teams')
+    } finally {
+      setSavingTeams(false)
+    }
+  }
+
+  function discardPending() {
+    setPendingAssignments(prev => { const n = { ...prev }; delete n[activeRound]; return n })
+    setSelectedSwap(null)
+  }
 
   // Build a lookup for round_games: (round, game) -> RoundGame
   const gameMap: Record<string, RoundGame> = {}
@@ -523,7 +591,7 @@ export default function DirectorSession() {
           <p className="text-sm text-orange-500 mt-2">
             {ungendered.length > 0
               ? `Set gender for ${ungendered.length} player${ungendered.length > 1 ? 's' : ''} before assigning teams.`
-              : `Need 6M + 6F to assign teams (have ${men.length}M / ${women.length}F).`}
+              : `Need at least 3M + 3F to assign teams (have ${men.length}M / ${women.length}F).`}
           </p>
         )}
       </div>
@@ -545,40 +613,75 @@ export default function DirectorSession() {
         </div>
 
         <div className="flex items-center justify-between mb-4">
-          <p className="text-sm text-gray-500">
-            {session.assignments[activeRound] ? 'Teams assigned' : 'No teams assigned yet'}
-          </p>
-          <button
-            onClick={() => assignTeams(activeRound)}
-            disabled={!canAssign || assigning === activeRound}
-            className="bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-40"
-          >
-            {assigning === activeRound ? 'Assigning…' : session.assignments[activeRound] ? 'Reshuffle' : 'Assign Teams'}
-          </button>
+          <div className="flex items-center gap-3">
+            <p className="text-sm text-gray-500">
+              {getAssignments(activeRound) ? (pendingAssignments[activeRound] ? '⚠️ Unsaved changes' : 'Teams assigned') : 'No teams assigned yet'}
+            </p>
+            {selectedSwap && (
+              <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                Tap another player to swap
+              </span>
+            )}
+          </div>
+          <div className="flex gap-2">
+            {pendingAssignments[activeRound] && (
+              <>
+                <button
+                  onClick={discardPending}
+                  className="border px-4 py-2 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100"
+                >
+                  Discard
+                </button>
+                <button
+                  onClick={saveTeams}
+                  disabled={savingTeams}
+                  className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {savingTeams ? 'Saving…' : 'Save Teams'}
+                </button>
+              </>
+            )}
+            <button
+              onClick={() => assignTeams(activeRound)}
+              disabled={!canAssign || assigning === activeRound}
+              className="bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-40"
+            >
+              {assigning === activeRound ? 'Assigning…' : getAssignments(activeRound) ? 'Reshuffle' : 'Assign Teams'}
+            </button>
+          </div>
         </div>
 
         {/* Team assignment grid */}
-        {session.assignments[activeRound] ? (
+        {getAssignments(activeRound) ? (
           <div className="grid grid-cols-3 gap-4 mb-6">
             {TEAMS.map(team => (
               <div key={team} className="border rounded-xl overflow-hidden">
                 <div className={`px-4 py-2 font-semibold text-sm text-center ${TEAM_STYLE[team]}`}>{team}</div>
                 <ul className="divide-y">
-                  {session.assignments[activeRound][team].map(p => (
-                    <li key={p.id} className="px-4 py-2.5 flex items-center justify-between bg-white text-sm">
-                      <span className="font-medium">{p.name}</span>
-                      <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${GENDER_COLOR[p.gender ?? ''] ?? ''}`}>
-                        {p.gender?.toUpperCase()}
-                      </span>
-                    </li>
-                  ))}
+                  {getAssignments(activeRound)![team].map(p => {
+                    const isSelected = selectedSwap?.playerId === p.id
+                    return (
+                      <li
+                        key={p.id}
+                        onClick={() => handlePlayerClick(p.id, team)}
+                        className={`px-4 py-2.5 flex items-center justify-between text-sm cursor-pointer transition ${
+                          isSelected ? 'bg-blue-100 ring-2 ring-blue-400' : 'bg-white hover:bg-gray-50'
+                        }`}
+                      >
+                        <span className="font-medium">{p.name}</span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${GENDER_COLOR[p.gender ?? ''] ?? ''}`}>
+                          {p.gender?.toUpperCase()}
+                        </span>
+                      </li>
+                    )
+                  })}
                 </ul>
               </div>
             ))}
           </div>
         ) : (
           <div className="border rounded-xl py-8 text-center text-gray-400 mb-6">
-            {canAssign ? 'Press "Assign Teams" to randomly assign players.' : 'Add 6 men and 6 women with gender set.'}
+            {canAssign ? 'Press "Assign Teams" to randomly assign players.' : 'Need at least 3M + 3F with gender set.'}
           </div>
         )}
 
