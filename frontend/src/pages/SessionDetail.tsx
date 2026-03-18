@@ -385,13 +385,13 @@ export default function SessionDetail() {
         )}
       </div>
 
-      {/* Additional media gallery */}
+      {/* Media gallery — horizontal scroll strip */}
       {otherMedia.length > 0 && (
         <div>
-          <h2 className="text-xl font-semibold mb-3">Media</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <h2 className="text-xl font-semibold mb-3">Session Media</h2>
+          <div className="flex gap-4 overflow-x-auto pb-2">
             {otherMedia.map(item => (
-              <div key={item.id} className="border rounded-xl p-3 bg-white space-y-2">
+              <div key={item.id} className="flex-none w-64 border rounded-xl p-3 bg-white space-y-2">
                 <MediaEmbed item={item} />
                 {item.caption && <p className="text-xs text-gray-500 text-center">{item.caption}</p>}
               </div>
