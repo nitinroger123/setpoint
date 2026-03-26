@@ -1,9 +1,13 @@
 import os
 import random
-from fastapi import APIRouter, HTTPException, Depends, Header
+import uuid
+from fastapi import APIRouter, HTTPException, Depends, Header, UploadFile, File, Form
 from database import get_supabase
 from standings_helper import compute_live_standings
 from config import ROSTER_SIZE, NUM_TEAMS, TEAM_SIZE, MIN_GENDER_PER_TEAM, NUM_ROUNDS
+
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+STORAGE_BUCKET = "session-media"
 
 router = APIRouter()
 
@@ -485,6 +489,34 @@ def add_media(session_id: str, body: dict, _: None = Depends(require_director)):
         "url": url,
         "caption": (body.get("caption") or "").strip() or None,
         "media_type": media_type,
+        "is_featured": is_featured,
+    }).execute()
+    return res.data[0]
+
+
+@router.post("/sessions/{session_id}/media/upload")
+async def upload_media(
+    session_id: str,
+    file: UploadFile = File(...),
+    caption: str = Form(default=""),
+    is_featured: bool = Form(default=False),
+    _: None = Depends(require_director),
+):
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail="Only JPEG, PNG, GIF, and WebP images are supported")
+    ext = (file.filename or "image").rsplit(".", 1)[-1].lower()
+    path = f"{session_id}/{uuid.uuid4()}.{ext}"
+    contents = await file.read()
+    sb = get_supabase()
+    sb.storage.from_(STORAGE_BUCKET).upload(path, contents, {"content-type": file.content_type})
+    url = sb.storage.from_(STORAGE_BUCKET).get_public_url(path)
+    if is_featured:
+        sb.table("session_media").update({"is_featured": False}).eq("session_id", session_id).execute()
+    res = sb.table("session_media").insert({
+        "session_id": session_id,
+        "url": url,
+        "caption": caption.strip() or None,
+        "media_type": "image",
         "is_featured": is_featured,
     }).execute()
     return res.data[0]

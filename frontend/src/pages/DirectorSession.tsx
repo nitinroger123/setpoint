@@ -242,6 +242,7 @@ export default function DirectorSession() {
   const [mediaFeatured, setMediaFeatured] = useState(false)
   const [mediaType, setMediaType] = useState('auto')
   const [addingMedia, setAddingMedia] = useState(false)
+  const [uploadingFile, setUploadingFile] = useState(false)
   const navigate = useNavigate()
 
   async function reload() {
@@ -385,6 +386,29 @@ export default function DirectorSession() {
       setError('Failed to add media')
     } finally {
       setAddingMedia(false)
+    }
+  }
+
+  async function uploadFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !session) return
+    setUploadingFile(true)
+    setError(null)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      form.append('caption', mediaCaption.trim())
+      form.append('is_featured', String(mediaFeatured))
+      const res = await directorApi.post(`/api/director/sessions/${session.id}/media/upload`, form)
+      if (mediaFeatured) setMedia(prev => prev.map(m => ({ ...m, is_featured: false })))
+      setMedia(prev => [...prev, res.data])
+      setMediaCaption('')
+      setMediaFeatured(false)
+    } catch {
+      setError('Upload failed')
+    } finally {
+      setUploadingFile(false)
+      e.target.value = ''
     }
   }
 
@@ -766,30 +790,14 @@ export default function DirectorSession() {
       <div>
         <h2 className="text-xl font-semibold mb-3">Session Media</h2>
 
-        <form onSubmit={addMedia} className="flex gap-2 mb-4 flex-wrap items-center">
-          <input
-            value={mediaUrl}
-            onChange={e => setMediaUrl(e.target.value)}
-            placeholder="Paste URL (image, YouTube, or any link)…"
-            className="flex-1 min-w-48 border rounded-lg px-3 py-2 text-sm"
-            required
-          />
+        {/* Shared caption + featured controls */}
+        <div className="flex gap-2 mb-2 flex-wrap items-center">
           <input
             value={mediaCaption}
             onChange={e => setMediaCaption(e.target.value)}
             placeholder="Caption (optional)"
-            className="w-48 border rounded-lg px-3 py-2 text-sm"
+            className="flex-1 min-w-48 border rounded-lg px-3 py-2 text-sm"
           />
-          <select
-            value={mediaType}
-            onChange={e => setMediaType(e.target.value)}
-            className="border rounded-lg px-3 py-2 text-sm"
-          >
-            <option value="auto">Auto-detect</option>
-            <option value="image">Image</option>
-            <option value="youtube">YouTube</option>
-            <option value="link">Link</option>
-          </select>
           <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer whitespace-nowrap">
             <input
               type="checkbox"
@@ -799,12 +807,41 @@ export default function DirectorSession() {
             />
             Feature
           </label>
+        </div>
+
+        {/* Upload photo */}
+        <div className="flex gap-2 mb-2 items-center">
+          <label className={`cursor-pointer bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 ${uploadingFile ? 'opacity-40 pointer-events-none' : ''}`}>
+            {uploadingFile ? 'Uploading…' : '📷 Upload Photo'}
+            <input type="file" accept="image/*" className="hidden" onChange={uploadFile} disabled={uploadingFile} />
+          </label>
+          <span className="text-xs text-gray-400">JPEG, PNG, GIF, WebP</span>
+        </div>
+
+        {/* Or paste a URL (YouTube / links) */}
+        <form onSubmit={addMedia} className="flex gap-2 mb-4 flex-wrap items-center">
+          <input
+            value={mediaUrl}
+            onChange={e => setMediaUrl(e.target.value)}
+            placeholder="Or paste a YouTube / link URL…"
+            className="flex-1 min-w-48 border rounded-lg px-3 py-2 text-sm"
+            required
+          />
+          <select
+            value={mediaType}
+            onChange={e => setMediaType(e.target.value)}
+            className="border rounded-lg px-3 py-2 text-sm"
+          >
+            <option value="auto">Auto-detect</option>
+            <option value="youtube">YouTube</option>
+            <option value="link">Link</option>
+          </select>
           <button
             type="submit"
             disabled={addingMedia || !mediaUrl.trim()}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-40"
+            className="bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-40"
           >
-            {addingMedia ? 'Adding…' : 'Add'}
+            {addingMedia ? 'Adding…' : 'Add URL'}
           </button>
         </form>
 
