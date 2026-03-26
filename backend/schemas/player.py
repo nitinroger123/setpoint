@@ -5,6 +5,7 @@ class PlayerBase(BaseModel):
     name: str
     phone: Optional[str] = None
     email: Optional[str] = None
+    gender: Optional[str] = None
 
 class PlayerCreate(PlayerBase):
     pass
