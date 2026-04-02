@@ -43,6 +43,11 @@ def compute_live_standings(session_id: str, sb) -> list:
                 stats[pid]["diff"] += player_diff
 
     sorted_standings = sorted(stats.values(), key=lambda x: (-x["wins"], -x["diff"]))
+    place = 1
     for i, s in enumerate(sorted_standings):
-        s["place"] = i + 1
+        if i > 0:
+            prev = sorted_standings[i - 1]
+            if s["wins"] != prev["wins"] or s["diff"] != prev["diff"]:
+                place += 1
+        s["place"] = place
     return sorted_standings
