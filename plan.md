@@ -10,16 +10,8 @@ A tournament management platform targeting beach volleyball organizers — bette
 | Layer | Current | Verdict |
 |---|---|---|
 | Frontend | React/TS on Vercel | Keep — scales to millions of requests free |
-| Backend | Spring Boot (Java) on Railway | Migrated from FastAPI/Python — Java familiarity reduces debug time, strong typing catches bugs at compile time |
+| Backend | FastAPI on Railway | Clean, readable, easy to extend — staying with Python |
 | DB | Supabase (Postgres) | Keep — has Auth, Realtime, Storage built in |
-
-**Backend migration status:** Java backend (`backend-java/`) is a full port of the Python backend (`backend/`). Python backend stays in place until Java is deployed and verified on Railway, then Python is removed.
-
-**Why Java over Python:**
-- Director's primary language — faster to read, debug, and extend
-- Compile-time type safety via jOOQ catches schema mismatches before runtime
-- Spring Boot + IntelliJ tooling is best-in-class for REST APIs
-- Same Railway deployment target — no infra change required
 
 ---
 
