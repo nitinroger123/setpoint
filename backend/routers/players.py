@@ -1,12 +1,30 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from database import get_supabase, fetch_all
 from schemas.player import PlayerCreate, PlayerOut
 from collections import defaultdict
 
 router = APIRouter()
 
-# NOTE: /profile must be defined before /{player_id} so FastAPI doesn't
-# treat the literal string "profile" as a player ID and return a 404.
+# NOTE: Static path segments (/search, /profile) must be defined before
+# /{player_id} so FastAPI doesn't treat them as player IDs and return 404s.
+
+@router.get("/search")
+def search_players(q: str = Query(default="", min_length=1)):
+    """Public player search by name. Returns id, name, and avatar_url.
+
+    Performs a case-insensitive partial match on the player name.
+    Used by the /players discovery page in the frontend.
+    Results are sorted alphabetically and capped at 20.
+    """
+    sb = get_supabase()
+    res = sb.table("players") \
+        .select("id, name, avatar_url") \
+        .ilike("name", f"%{q}%") \
+        .order("name") \
+        .limit(20) \
+        .execute()
+    return res.data
+
 
 @router.get("/", response_model=list[PlayerOut])
 def list_players():
@@ -24,6 +42,17 @@ def get_player_profile(player_id: str):
     player = sb.table("players").select("*").eq("id", player_id).single().execute()
     if not player.data:
         raise HTTPException(status_code=404, detail="Player not found")
+
+    # Fetch org memberships so the public profile can display which orgs the player belongs to
+    memberships = sb.table("org_memberships") \
+        .select("role, organizations(id, name, slug)") \
+        .eq("player_id", player_id) \
+        .eq("status", "active") \
+        .execute().data
+    orgs = [
+        {"id": m["organizations"]["id"], "name": m["organizations"]["name"], "slug": m["organizations"]["slug"], "role": m["role"]}
+        for m in memberships if m.get("organizations")
+    ]
 
     # Use session_standings for one clean row per session — no anchor hack needed.
     # FK join traversal: session_standings -> sessions -> tournament_series
@@ -72,24 +101,38 @@ def get_player_profile(player_id: str):
     overall["win_pct"] = round(overall["wins"] / overall["games"] * 100, 1) if overall["games"] > 0 else 0.0
 
     return {
-        "player": player.data,
+        "player": {**player.data, "orgs": orgs},
         "overall": overall,
         "history": history,
     }
 
 @router.get("/{player_id}/teammate-stats")
-def get_teammate_stats(player_id: str):
-    # Returns top 5 and worst 5 teammates based on games played together.
+def get_teammate_stats(player_id: str, series_id: str = Query(default=None)):
+    # Returns teammate win/loss stats for a player, optionally filtered to one series.
+    # When series_id is provided only sessions in that series are included — used
+    # to show per-series teammate chemistry on the player dashboard.
     # Win/loss counts are taken from the player's own game_results for each round.
     sb = get_supabase()
 
-    my_assignments = sb.table("round_assignments") \
+    assignments_query = sb.table("round_assignments") \
         .select("session_id, round_number, team") \
-        .eq("player_id", player_id) \
-        .execute().data
+        .eq("player_id", player_id)
+
+    # If filtering by series, first resolve which session IDs belong to that series
+    if series_id:
+        series_sessions = sb.table("sessions") \
+            .select("id") \
+            .eq("series_id", series_id) \
+            .execute().data
+        session_ids_in_series = [s["id"] for s in series_sessions]
+        if not session_ids_in_series:
+            return {"most_played": [], "top_teammates": [], "worst_teammates": []}
+        assignments_query = assignments_query.in_("session_id", session_ids_in_series)
+
+    my_assignments = assignments_query.execute().data
 
     if not my_assignments:
-        return {"top_teammates": [], "worst_teammates": []}
+        return {"most_played": [], "top_teammates": [], "worst_teammates": []}
 
     session_ids = list({a["session_id"] for a in my_assignments})
 
@@ -146,8 +189,9 @@ def get_teammate_stats(player_id: str):
     # All teammates sorted by most games together
     most_played = sorted(all_stats, key=lambda x: (-x["games"], -x["wins"]))
 
-    # Minimum sample size of 8 games together for win%-based lists
-    qualified = [s for s in all_stats if s["games"] >= 8]
+    # Minimum sample size: 8 games overall, 4 when filtered to a single series
+    min_games = 4 if series_id else 8
+    qualified = [s for s in all_stats if s["games"] >= min_games]
 
     # Top: highest win % first, then most wins as tiebreaker
     top   = sorted(qualified, key=lambda x: (-x["win_pct"], -x["wins"]))[:5]

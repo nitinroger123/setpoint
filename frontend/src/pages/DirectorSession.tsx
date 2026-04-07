@@ -146,7 +146,7 @@ function GameCard({
       <div className="flex items-center justify-between">
         <span className="text-xs text-gray-400 uppercase font-medium">Game {game.game_number}</span>
         {isScored && !editing && (
-          <button onClick={() => setEditing(true)} className="text-xs text-blue-500 hover:underline">Edit</button>
+          <button onClick={() => setEditing(true)} className="text-xs text-primary/70 hover:text-primary font-medium transition-colors">Edit</button>
         )}
       </div>
 
@@ -195,17 +195,17 @@ function GameCard({
             <button
               onClick={submit}
               disabled={submitting || !scoreA || !scoreB || scoreA === scoreB}
-              className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-40"
+              className="flex-1 bg-primary text-white font-semibold py-2 rounded-lg shadow-sm hover:bg-primary-light transition-all disabled:opacity-50"
             >
               {submitting ? 'Saving…' : 'Save Score'}
             </button>
             {(editing || isScored) && (
-              <button onClick={clearScore} className="px-3 py-2 text-sm text-red-400 hover:text-red-600 border rounded-lg">
+              <button onClick={clearScore} className="px-3 py-2 text-sm text-red-400 hover:text-red-500 border border-red-200 hover:border-red-300 rounded-lg transition-colors">
                 Clear
               </button>
             )}
             {editing && (
-              <button onClick={() => setEditing(false)} className="px-3 py-2 text-sm text-gray-400 hover:text-gray-600 border rounded-lg">
+              <button onClick={() => setEditing(false)} className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg transition-colors">
                 Cancel
               </button>
             )}
@@ -519,7 +519,7 @@ export default function DirectorSession() {
     <div className="max-w-4xl mx-auto p-6 space-y-8">
       {/* Header */}
       <div>
-        <Link to="/director" className="text-blue-500 hover:underline text-sm mb-4 block">← Back to Director</Link>
+        <Link to="/director" className="text-primary underline underline-offset-2 text-sm mb-4 block hover:text-primary-lighter">← Back to Director</Link>
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold">
@@ -541,7 +541,7 @@ export default function DirectorSession() {
               <button
                 onClick={activateSession}
                 disabled={activating}
-                className="bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 disabled:opacity-50"
+                className="bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-semibold shadow-sm hover:shadow hover:bg-green-700 transition-all disabled:opacity-50"
               >
                 {activating ? 'Starting…' : 'Start Session'}
               </button>
@@ -550,7 +550,7 @@ export default function DirectorSession() {
               <button
                 onClick={completeSession}
                 disabled={completing}
-                className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
+                className="bg-primary text-white font-semibold px-5 py-2 rounded-lg shadow-sm hover:shadow hover:bg-primary-light transition-all disabled:opacity-50"
               >
                 {completing ? 'Saving…' : 'End Session'}
               </button>
@@ -558,7 +558,7 @@ export default function DirectorSession() {
             <button
               onClick={deleteSession}
               disabled={deleting}
-              className="text-red-400 hover:text-red-600 text-sm px-3 py-2 disabled:opacity-50"
+              className="text-red-400 hover:text-red-500 text-sm font-medium transition-colors px-3 py-2 disabled:opacity-50"
             >
               {deleting ? 'Deleting…' : 'Delete'}
             </button>
@@ -709,14 +709,14 @@ export default function DirectorSession() {
               <>
                 <button
                   onClick={discardPending}
-                  className="border px-4 py-2 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100"
+                  className="text-gray-500 hover:text-gray-700 text-sm transition-colors"
                 >
                   Discard
                 </button>
                 <button
                   onClick={saveTeams}
                   disabled={savingTeams}
-                  className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                  className="bg-primary text-white font-semibold px-4 py-2 rounded-lg shadow-sm hover:shadow hover:bg-primary-light transition-all disabled:opacity-50"
                 >
                   {savingTeams ? 'Saving…' : 'Save Teams'}
                 </button>
@@ -725,7 +725,7 @@ export default function DirectorSession() {
             <button
               onClick={() => assignTeams(activeRound)}
               disabled={!canAssign || assigning === activeRound}
-              className="bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-40"
+              className="bg-primary text-white font-semibold px-4 py-2 rounded-lg shadow-sm hover:shadow hover:bg-primary-light transition-all disabled:opacity-50"
             >
               {assigning === activeRound ? 'Assigning…' : getAssignments(activeRound) ? 'Reshuffle' : 'Assign Teams'}
             </button>

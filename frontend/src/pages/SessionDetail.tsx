@@ -43,7 +43,7 @@ function youtubeId(url: string): string | null {
 function MediaEmbed({ item }: { item: SessionMedia }) {
   if (item.media_type === 'youtube') {
     const vid = youtubeId(item.url)
-    if (!vid) return <a href={item.url} target="_blank" rel="noreferrer" className="text-blue-500 underline">{item.url}</a>
+    if (!vid) return <a href={item.url} target="_blank" rel="noreferrer" className="text-gray-600 underline">{item.url}</a>
     return (
       <div className="aspect-video w-full">
         <iframe
@@ -70,14 +70,14 @@ function MediaEmbed({ item }: { item: SessionMedia }) {
             link.target = '_blank'
             link.rel = 'noreferrer'
             link.textContent = item.caption ?? 'View photo →'
-            link.className = 'text-blue-500 underline text-sm'
+            link.className = 'text-gray-600 underline text-sm'
             el.parentElement?.appendChild(link)
           }}
         />
       </a>
     )
   }
-  return <a href={item.url} target="_blank" rel="noreferrer" className="text-blue-500 underline break-all">{item.caption ?? item.url}</a>
+  return <a href={item.url} target="_blank" rel="noreferrer" className="text-gray-600 underline break-all">{item.caption ?? item.url}</a>
 }
 
 // ── Helpers for completed sessions ───────────────────────────────────────────
@@ -146,7 +146,7 @@ function LiveView({ session, onRefresh }: { session: any; onRefresh: () => void 
     <div className="max-w-5xl mx-auto p-6 space-y-8">
       {/* Header */}
       <div>
-        <Link to="/tournaments" className="text-blue-500 hover:underline text-sm mb-4 block">← Back to Tournaments</Link>
+        <Link to="/tournaments" className="text-gray-600 hover:underline text-sm mb-4 block">← Back to Tournaments</Link>
         <div className="flex items-center gap-3 flex-wrap">
           <h1 className="text-3xl font-bold">
             {new Date(session.date + 'T00:00:00').toLocaleDateString('en-US', {
@@ -156,7 +156,7 @@ function LiveView({ session, onRefresh }: { session: any; onRefresh: () => void 
           <span className="bg-green-100 text-green-700 text-sm font-semibold px-3 py-1 rounded-full">🟢 Live</span>
         </div>
         {session.tournament_series && <p className="text-gray-500">{session.tournament_series.name}</p>}
-        <button onClick={onRefresh} className="mt-2 text-xs text-blue-500 hover:underline">↻ Refresh</button>
+        <button onClick={onRefresh} className="mt-2 text-xs text-gray-600 hover:underline">↻ Refresh</button>
       </div>
 
       {/* Live Standings */}
@@ -165,7 +165,7 @@ function LiveView({ session, onRefresh }: { session: any; onRefresh: () => void 
           <h2 className="text-xl font-semibold mb-3">Live Standings</h2>
           <div className="border rounded-xl overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
+              <thead className="bg-primary/5 text-primary uppercase text-xs">
                 <tr>
                   <th className="px-4 py-3 text-left">Place</th>
                   <th className="px-4 py-3 text-left">Player</th>
@@ -175,7 +175,7 @@ function LiveView({ session, onRefresh }: { session: any; onRefresh: () => void 
               </thead>
               <tbody className="divide-y">
                 {liveStandings.map(p => (
-                  <tr key={p.id} className={p.place <= 4 ? 'bg-yellow-50' : 'bg-white'}>
+                  <tr key={p.id} className={p.place <= 4 ? 'bg-gold/10' : 'bg-white'}>
                     <td className="px-4 py-3 font-medium">{medals[p.place] || p.place}</td>
                     <td className="px-4 py-3 font-semibold">{p.name}</td>
                     <td className="px-4 py-3 text-center">{p.wins}</td>
@@ -198,7 +198,7 @@ function LiveView({ session, onRefresh }: { session: any; onRefresh: () => void 
             {[1, 2, 3, 4].map(r => (
               <button key={r} onClick={() => setActiveRound(r)}
                 className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
-                  activeRound === r ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+                  activeRound === r ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
                 Round {r} {r === currentRound ? '●' : ''}
@@ -247,7 +247,7 @@ function LiveView({ session, onRefresh }: { session: any; onRefresh: () => void 
             {[1, 2, 3, 4].map(r => (
               <button key={r} onClick={() => setActiveRound(r)}
                 className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
-                  activeRound === r ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+                  activeRound === r ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
                 Round {r}
@@ -312,7 +312,7 @@ export default function SessionDetail() {
   if (session.status === 'draft' && !hasResults) {
     return (
       <div className="max-w-4xl mx-auto p-6">
-        <Link to="/tournaments" className="text-blue-500 hover:underline text-sm mb-4 block">← Back to Tournaments</Link>
+        <Link to="/tournaments" className="text-gray-600 hover:underline text-sm mb-4 block">← Back to Tournaments</Link>
         <h1 className="text-3xl font-bold mb-2">
           {new Date(session.date + 'T00:00:00').toLocaleDateString('en-US', {
             weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
@@ -335,7 +335,7 @@ export default function SessionDetail() {
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-8">
       <div>
-        <Link to="/tournaments" className="text-blue-500 hover:underline text-sm mb-4 block">← Back to Tournaments</Link>
+        <Link to="/tournaments" className="text-gray-600 hover:underline text-sm mb-4 block">← Back to Tournaments</Link>
         <h1 className="text-3xl font-bold mb-1">
           {new Date(session.date + 'T00:00:00').toLocaleDateString('en-US', {
             weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
@@ -350,7 +350,7 @@ export default function SessionDetail() {
           <h2 className="text-xl font-semibold mb-3">Standings</h2>
           <div className="border rounded-xl overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-600 uppercase text-xs">
+              <thead className="bg-primary/5 text-primary uppercase text-xs">
                 <tr>
                   <th className="px-4 py-3 text-left">Place</th>
                   <th className="px-4 py-3 text-left">Player</th>
@@ -360,7 +360,7 @@ export default function SessionDetail() {
               </thead>
               <tbody className="divide-y">
                 {players.map(p => (
-                  <tr key={p.name} className={p.place <= 4 ? 'bg-yellow-50' : 'bg-white'}>
+                  <tr key={p.name} className={p.place <= 4 ? 'bg-gold/10' : 'bg-white'}>
                     <td className="px-4 py-3 font-medium">{medals[p.place] || p.place}</td>
                     <td className="px-4 py-3 font-semibold">{p.name}</td>
                     <td className="px-4 py-3 text-center">{p.wins}</td>
@@ -409,7 +409,7 @@ export default function SessionDetail() {
               <h2 className="text-xl font-semibold mb-3">Round-by-Round Results</h2>
               <div className="border rounded-xl overflow-hidden">
                 <table className="w-full text-sm table-fixed">
-                  <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
+                  <thead className="bg-primary/5 text-primary uppercase text-xs">
                     <tr>
                       <th className="px-3 py-3 text-left w-24">Player</th>
                       {roundGameKeys.map(key => {
@@ -423,7 +423,7 @@ export default function SessionDetail() {
                       const gameByKey: Record<string, GameResult> = {}
                       for (const g of p.games) gameByKey[`${g.round_number}-${g.game_number}`] = g
                       return (
-                        <tr key={p.name} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <tr key={p.name} className={i % 2 === 0 ? 'bg-white' : 'bg-cream-light'}>
                           <td className="px-3 py-2.5 font-semibold truncate">
                             {medals[p.place] && <span className="mr-0.5">{medals[p.place]}</span>}
                             {p.name}
@@ -468,7 +468,7 @@ function CompletedTeamsPanel({ assignments }: { assignments: Record<string, Team
         {rounds.map(r => (
           <button key={r} onClick={() => setActiveRound(r)}
             className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
-              activeRound === r ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+              activeRound === r ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
             Round {r}

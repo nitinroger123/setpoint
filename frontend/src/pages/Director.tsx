@@ -54,7 +54,7 @@ function PinEntry({ onSuccess }: { onSuccess: () => void }) {
         <button
           type="submit"
           disabled={!pin || checking}
-          className="w-full bg-blue-600 text-white rounded-lg py-2 font-medium hover:bg-blue-700 disabled:opacity-50"
+          className="w-full bg-primary text-white rounded-lg py-2 font-medium hover:bg-primary-light disabled:opacity-50"
         >
           {checking ? 'Checking…' : 'Enter'}
         </button>
@@ -68,7 +68,7 @@ function PinEntry({ onSuccess }: { onSuccess: () => void }) {
 const STATUS_BADGE: Record<string, string> = {
   draft:     'bg-gray-100 text-gray-500',
   active:    'bg-green-100 text-green-700',
-  completed: 'bg-blue-100 text-blue-700',
+  completed: 'bg-primary/10 text-primary',
 }
 
 export default function Director() {
@@ -88,11 +88,15 @@ export default function Director() {
     Promise.all([
       directorApi.get('/api/director/sessions'),
       api.get('/api/series'),
-    ]).then(([sessRes, seriesRes]) => {
-      setSessions(sessRes.data)
-      setSeriesList(seriesRes.data)
-      setLoading(false)
-    })
+    ])
+      .then(([sessRes, seriesRes]) => {
+        setSessions(sessRes.data)
+        setSeriesList(seriesRes.data)
+      })
+      .catch(() => {
+        // Show empty state rather than infinite loading spinner
+      })
+      .finally(() => setLoading(false))
   }, [authed])
 
   async function createSession(e: React.FormEvent) {
@@ -119,19 +123,19 @@ export default function Director() {
         <div className="flex gap-2">
           <Link
             to="/director/players"
-            className="border px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100"
+            className="bg-white border-2 border-primary/20 text-primary font-medium px-4 py-2 rounded-lg hover:border-primary hover:bg-primary/5 transition-colors"
           >
             Players
           </Link>
           <button
             onClick={() => setShowCreate(s => !s)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
+            className="bg-white border-2 border-primary/20 text-primary font-medium px-4 py-2 rounded-lg hover:border-primary hover:bg-primary/5 transition-colors"
           >
             + New Session
           </button>
           <button
             onClick={() => { localStorage.removeItem('director_pin'); setAuthed(false) }}
-            className="text-sm text-gray-400 hover:text-gray-600 px-2"
+            className="text-gray-500 hover:text-gray-700 text-sm transition-colors px-2"
           >
             Log out
           </button>
@@ -167,8 +171,8 @@ export default function Director() {
             </div>
           </div>
           <div className="flex gap-2 justify-end">
-            <button type="button" onClick={() => setShowCreate(false)} className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2">Cancel</button>
-            <button type="submit" disabled={creating} className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+            <button type="button" onClick={() => setShowCreate(false)} className="text-gray-500 hover:text-gray-700 text-sm transition-colors">Cancel</button>
+            <button type="submit" disabled={creating} className="bg-primary text-white font-semibold px-4 py-2 rounded-lg shadow-sm hover:shadow hover:bg-primary-light transition-all disabled:opacity-50">
               {creating ? 'Creating…' : 'Create'}
             </button>
           </div>
@@ -201,7 +205,7 @@ export default function Director() {
                 <span className={`text-xs font-medium px-2 py-1 rounded-full capitalize ${STATUS_BADGE[s.status] || ''}`}>
                   {s.status}
                 </span>
-                <span className="text-blue-500">→</span>
+                <span className="text-gold">→</span>
               </div>
             </Link>
           ))}

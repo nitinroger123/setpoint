@@ -52,7 +52,7 @@ export default function Sessions() {
             onClick={() => setActiveFormat(f.id)}
             className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
               activeFormat === f.id
-                ? 'border-blue-600 text-blue-600'
+                ? 'border-primary text-primary'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -81,7 +81,7 @@ export default function Sessions() {
                     <p className="text-sm text-gray-500 mt-0.5">📍 {s.location}</p>
                   )}
                 </div>
-                <span className="text-blue-500 font-medium">View →</span>
+                <span className="text-gold font-medium">View →</span>
               </div>
             </Link>
           ))}

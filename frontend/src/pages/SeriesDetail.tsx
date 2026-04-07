@@ -77,7 +77,7 @@ export default function SeriesDetail() {
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       <div>
-        <Link to="/tournaments" className="text-blue-500 hover:underline text-sm mb-4 block">← Back to Tournaments</Link>
+        <Link to="/tournaments" className="text-gray-600 hover:underline text-sm mb-4 block">← Back to Tournaments</Link>
         <h1 className="text-3xl font-bold mb-1">{series.name}</h1>
         {series.location && <p className="text-gray-500">📍 {series.location}</p>}
       </div>
@@ -88,13 +88,13 @@ export default function SeriesDetail() {
           <h2 className="text-xl font-semibold mb-3">Leaderboard</h2>
           <div className="border rounded-xl overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
+              <thead className="bg-primary/5 text-primary uppercase text-xs">
                 <tr>
                   {COLUMNS.map(col => (
                     <th
                       key={col.key}
                       onClick={() => handleSort(col.key)}
-                      className={`px-4 py-3 cursor-pointer select-none hover:bg-gray-100 ${col.align === 'left' ? 'text-left' : 'text-center'}`}
+                      className={`px-4 py-3 cursor-pointer select-none hover:bg-cream ${col.align === 'left' ? 'text-left' : 'text-center'}`}
                     >
                       {col.label}<SortIcon col={col.key} />
                     </th>
@@ -103,9 +103,9 @@ export default function SeriesDetail() {
               </thead>
               <tbody className="divide-y">
                 {sorted.map((p, i) => (
-                  <tr key={p.player_id} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                  <tr key={p.player_id} className={i % 2 === 0 ? 'bg-white' : 'bg-cream-light'}>
                     <td className="px-4 py-3 font-semibold">
-                      <Link to={`/players/${p.player_id}`} className="text-blue-600 hover:underline">
+                      <Link to={`/players/${p.player_id}`} className="text-primary underline underline-offset-2 hover:text-primary-lighter">
                         {p.name}
                       </Link>
                     </td>
@@ -114,7 +114,7 @@ export default function SeriesDetail() {
                     <td className="px-4 py-3 text-center font-medium">{p.second || '—'}</td>
                     <td className="px-4 py-3 text-center font-medium">{p.third || '—'}</td>
                     <td className="px-4 py-3 text-center font-medium">{p.fourth || '—'}</td>
-                    <td className="px-4 py-3 text-center font-semibold text-blue-600">{p.win_pct}%</td>
+                    <td className="px-4 py-3 text-center font-semibold text-primary">{p.win_pct}%</td>
                   </tr>
                 ))}
               </tbody>
@@ -148,7 +148,7 @@ export default function SeriesDetail() {
                       })}
                     </p>
                   </div>
-                  <span className="text-blue-500 text-sm">→</span>
+                  <span className="text-gold text-sm">→</span>
                 </Link>
               ))}
             </div>

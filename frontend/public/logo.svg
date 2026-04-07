@@ -1,0 +1,12 @@
+<!--
+  Setpoint logo mark — "The Setter" concept, exported from Figma.
+  Replace this file to update the logo everywhere. No code changes needed.
+-->
+<svg width="126" height="124" viewBox="0 0 126 124" fill="none" xmlns="http://www.w3.org/2000/svg">
+<circle cx="62.6528" cy="30" r="30" fill="#CB9F32"/>
+<circle cx="62.6528" cy="30" r="29.25" stroke="#122A1C" stroke-opacity="0.18" stroke-width="1.5"/>
+<rect x="32.6528" y="29" width="60" height="1" fill="#122A1C" fill-opacity="0.15"/>
+<rect x="-4.75616" y="102.742" width="76" height="26" rx="13" transform="rotate(-30 -4.75616 102.742)" fill="#122A1C"/>
+<rect x="64.2438" y="64.7417" width="76" height="26" rx="13" transform="rotate(30 64.2438 64.7417)" fill="#122A1C"/>
+<rect x="42.6528" y="110" width="40" height="14" rx="7" fill="#122A1C"/>
+</svg>

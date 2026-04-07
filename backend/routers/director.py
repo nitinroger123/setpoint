@@ -223,6 +223,62 @@ def delete_player(player_id: str, _: None = Depends(require_director)):
     return {"ok": True}
 
 
+@router.post("/players/{player_id}/claim-code")
+def generate_claim_code(player_id: str, _: None = Depends(require_director)):
+    """Generates a one-time claim code for an unclaimed player profile.
+
+    The code is formatted as the first 4 letters of the player's name
+    (uppercased) plus a 4-digit random number, e.g. 'NITI-4829'.
+    If a valid unexpired code already exists for this player it is returned
+    instead of creating a duplicate.
+    Returns: { "code": "NITI-4829", "expires_at": "..." }
+    """
+    from datetime import datetime, timezone, timedelta
+
+    sb = get_supabase()
+    now = datetime.now(timezone.utc)
+
+    # Fetch the player to build a name-based code prefix
+    player_res = sb.table("players") \
+        .select("id, name, auth_user_id") \
+        .eq("id", player_id) \
+        .execute()
+
+    if not player_res.data:
+        raise HTTPException(status_code=404, detail="Player not found")
+
+    player_data = player_res.data[0]
+
+    if player_data.get("auth_user_id"):
+        raise HTTPException(status_code=409, detail="Player profile is already claimed")
+
+    # Return an existing valid code if one exists to avoid duplicates
+    existing_res = sb.table("claim_codes") \
+        .select("code, expires_at") \
+        .eq("player_id", player_id) \
+        .is_("claimed_at", "null") \
+        .gt("expires_at", now.isoformat()) \
+        .execute()
+
+    if existing_res.data:
+        return existing_res.data[0]
+
+    # Build code: first 4 alpha chars of name + dash + 4 random digits
+    name_prefix = "".join(c for c in player_data["name"].upper() if c.isalpha())[:4].ljust(4, "X")
+    suffix = str(random.randint(1000, 9999))
+    code = f"{name_prefix}-{suffix}"
+    expires_at = (now + timedelta(days=7)).isoformat()
+
+    result = sb.table("claim_codes").insert({
+        "player_id": player_id,
+        "code": code,
+        "created_by": "director",
+        "expires_at": expires_at,
+    }).execute()
+
+    return {"code": result.data[0]["code"], "expires_at": result.data[0]["expires_at"]}
+
+
 # ---------- Team assignment ----------
 
 @router.post("/sessions/{session_id}/rounds/{round_number}/assign-teams")
