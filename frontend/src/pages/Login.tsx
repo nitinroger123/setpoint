@@ -17,14 +17,18 @@ export default function Login() {
     e.preventDefault()
     setLoading(true)
     setError(null)
-    const { error: authError } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: { shouldCreateUser: true },
-    })
-    if (authError) {
-      setError(authError.message)
-    } else {
-      setStep('otp')
+    try {
+      const { error: authError } = await supabase.auth.signInWithOtp({
+        email: email.trim(),
+        options: { shouldCreateUser: true },
+      })
+      if (authError) {
+        setError(authError.message)
+      } else {
+        setStep('otp')
+      }
+    } catch (err: unknown) {
+      setError(String(err))
     }
     setLoading(false)
   }
