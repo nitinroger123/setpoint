@@ -65,10 +65,10 @@ type SortDir = 'asc' | 'desc'
  */
 function useSortable<T extends Record<string, unknown>>(
   data: T[],
-  defaultKey: keyof T,
+  defaultKey: Extract<keyof T, string>,
   defaultDir: SortDir = 'asc'
 ) {
-  const [sortKey, setSortKey] = useState<keyof T>(defaultKey)
+  const [sortKey, setSortKey] = useState<Extract<keyof T, string>>(defaultKey)
   const [sortDir, setSortDir] = useState<SortDir>(defaultDir)
 
   const sorted = [...data].sort((a, b) => {
@@ -80,7 +80,7 @@ function useSortable<T extends Record<string, unknown>>(
     return sortDir === 'asc' ? cmp : -cmp
   })
 
-  function toggleSort(key: keyof T) {
+  function toggleSort(key: Extract<keyof T, string>) {
     if (key === sortKey) {
       setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
     } else {
@@ -107,10 +107,10 @@ function SortTh<T>({
   align = 'center',
 }: {
   label: string
-  colKey: keyof T
-  activeSortKey: keyof T
+  colKey: Extract<keyof T, string>
+  activeSortKey: Extract<keyof T, string>
   sortDir: SortDir
-  onSort: (key: keyof T) => void
+  onSort: (key: Extract<keyof T, string>) => void
   align?: 'left' | 'center'
 }) {
   const isActive = colKey === activeSortKey
