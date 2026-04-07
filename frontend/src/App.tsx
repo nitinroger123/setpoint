@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom'
 import Sessions from './pages/Sessions'
 import SeriesDetail from './pages/SeriesDetail'
 import SessionDetail from './pages/SessionDetail'
@@ -55,16 +55,6 @@ function SignInNavLink() {
   return <NavLink to="/login">Sign in</NavLink>
 }
 
-/**
- * Root route: redirects signed-in players to their dashboard,
- * shows the public tournaments list for everyone else.
- */
-function HomeRoute() {
-  const { session, player, loading } = useAuth()
-  if (loading) return null
-  if (session && player) return <Navigate to="/dashboard" replace />
-  return <Sessions />
-}
 
 /**
  * Top navigation bar.
@@ -143,7 +133,8 @@ export default function App() {
 
           <main className="flex-1">
             <Routes>
-              <Route path="/" element={<HomeRoute />} />
+              <Route path="/" element={<PlayerDashboard />} />
+              <Route path="/dashboard" element={<PlayerDashboard />} />
               <Route path="/tournaments" element={<Sessions />} />
               <Route path="/series/:id" element={<SeriesDetail />} />
               <Route path="/sessions/:id" element={<SessionDetail />} />
