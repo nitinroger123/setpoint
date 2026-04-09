@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers import players, sessions, games, series, director, auth, me
+from routers import pool_playoff, pool_playoff_director
 
 app = FastAPI(title="Setpoint API", version="0.1.0")
 
@@ -19,6 +20,10 @@ app.include_router(series.router, prefix="/api/series", tags=["series"])
 app.include_router(director.router, prefix="/api/director", tags=["director"])
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(me.router, prefix="/api/me", tags=["me"])
+# Pool play + single-elimination bracket (public read + score submission)
+app.include_router(pool_playoff.router, prefix="/api/pool", tags=["pool-playoff"])
+# Pool play + bracket director endpoints (PIN-protected)
+app.include_router(pool_playoff_director.router, prefix="/api/director/pool", tags=["pool-playoff-director"])
 
 @app.get("/")
 def root():

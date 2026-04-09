@@ -27,18 +27,18 @@ A complete reference for how the codebase is structured, how it's deployed, how 
 ```
 Browser (Vercel)
       │
-      │ HTTPS API calls (Axios)
-      ▼
-FastAPI Backend (Railway)
-      │
-      │ Supabase Python client
-      ▼
-Supabase (PostgreSQL)
+      ├── HTTPS API calls (Axios) ──────────────────────► FastAPI Backend (Railway)
+      │                                                          │
+      └── Supabase Auth (magic link) ──► Supabase Auth     Supabase Python client
+                                              │                  │
+                                              └──────────────────┴──► Supabase (PostgreSQL)
 ```
 
 - The **frontend** (React + Vite) is a Single Page Application deployed on Vercel. It talks to the backend via REST API calls using Axios.
 - The **backend** (Python + FastAPI) runs on Railway inside a Docker container. It handles all business logic and communicates with the database.
-- The **database** (Supabase / PostgreSQL) stores all data. Supabase also provides auth (planned), file storage (planned), and row-level security.
+- The **database** (Supabase / PostgreSQL) stores all data. Supabase also provides auth (magic link email), file storage (avatars), and row-level security.
+- **Supabase Auth** handles sign-in via email magic links. The frontend calls Supabase directly for auth; the resulting JWT is then sent to the backend on authenticated requests.
+- **Resend** is the custom SMTP provider for transactional email (magic links, etc.), sending from `noreply@nitinnatarajan.com`.
 
 ---
 
@@ -78,24 +78,34 @@ setpoint/
 │       ├── sessions.py          # GET /api/sessions, /api/sessions/:id (public)
 │       ├── series.py            # GET /api/series, /api/series/:id/leaderboard
 │       ├── games.py             # POST /api/games
-│       └── director.py          # All /api/director/* endpoints (PIN-protected)
+│       ├── director.py          # All /api/director/* endpoints (PIN-protected)
+│       ├── auth.py              # POST /api/auth/claim — link JWT to player record
+│       └── me.py                # GET/PUT /api/me/ — player self-service profile
 │
 ├── frontend/src/
-│   ├── App.tsx                  # Router: /, /tournaments, /series/:id, /sessions/:id,
-│   │                            #         /players/:id, /director, /director/sessions/:id,
-│   │                            #         /director/players
+│   ├── App.tsx                  # Router: /, /dashboard, /tournaments, /series/:id,
+│   │                            #         /sessions/:id, /players/:id, /login, /claim,
+│   │                            #         /director, /director/sessions/:id,
+│   │                            #         /director/players, /terms
+│   ├── context/
+│   │   └── AuthContext.tsx      # Auth state: session, player record, signOut, refreshPlayer
 │   ├── lib/
-│   │   ├── api.ts               # Axios client (points to VITE_API_URL)
+│   │   ├── api.ts               # Axios client for public endpoints (no auth)
 │   │   ├── directorApi.ts       # Axios wrapper with X-Director-Pin header from localStorage
-│   │   └── supabase.ts          # Supabase direct client (for future real-time)
+│   │   ├── playerApi.ts         # Axios factory: injects Supabase JWT for player-auth endpoints
+│   │   └── supabase.ts          # Supabase JS client (auth + direct DB)
 │   └── pages/
+│       ├── PlayerDashboard.tsx  # / and /dashboard — player's own stats + edit profile
 │       ├── Sessions.tsx         # /tournaments — format tabs + series cards
 │       ├── SeriesDetail.tsx     # /series/:id — leaderboard + sessions list
 │       ├── SessionDetail.tsx    # /sessions/:id — live view or completed view
 │       ├── PlayerProfile.tsx    # /players/:id — career stats, teammate chemistry
+│       ├── Login.tsx            # /login — email magic link sign-in
+│       ├── Claim.tsx            # /claim — enter claim code to link profile
 │       ├── Director.tsx         # /director — PIN gate + session list + create
 │       ├── DirectorSession.tsx  # /director/sessions/:id — full session management
-│       └── DirectorPlayers.tsx  # /director/players — player CRUD + gender management
+│       ├── DirectorPlayers.tsx  # /director/players — player CRUD + gender + claim codes
+│       └── Terms.tsx            # /terms — terms and conditions
 │
 ├── scripts/
 │   └── backfill_round_assignments.py  # Infers historical team assignments from point diffs
@@ -146,10 +156,43 @@ A named recurring tournament (e.g. "Revco 4s at ThePostBK 2025-2026").
 | Column | Type | Notes |
 |--------|------|-------|
 | id | uuid PK | |
-| name | text | |
-| phone | text unique | |
-| email | text unique | |
+| name | text | First name — editable by player |
+| last_name | text | Optional — editable by player |
+| phone | text unique | Optional |
+| email | text unique | Optional |
 | gender | text | `m` or `f` — set by director |
+| auth_user_id | uuid | Supabase auth user ID — null until claimed |
+| avatar_url | text | Supabase Storage URL — null until uploaded |
+| instagram_handle | text | Optional social handle |
+
+### `claim_codes`
+One-time codes generated by the director to let players link their email to a player record.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| player_id | uuid FK | References `players` |
+| code | text unique | e.g. `NITI-4829` — uppercase alphanumeric |
+| expires_at | timestamptz | Typically 7 days from creation |
+| claimed_at | timestamptz | null until used; set on successful claim |
+
+### `organizations`
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid PK | |
+| name | text | e.g. `vballnyc` |
+| slug | text unique | URL-safe identifier |
+
+### `org_memberships`
+Players can belong to one or more orgs (currently just `vballnyc`).
+
+| Column | Type | Notes |
+|--------|------|-------|
+| org_id | uuid FK | |
+| player_id | uuid FK | Unique together with org_id |
+| role | text | `player`, `director`, etc. |
+| status | text | `active` or `inactive` |
+| joined_at | timestamptz | |
 
 ### `sessions`
 | Column | Type | Notes |
@@ -275,14 +318,19 @@ FastAPI auto-generates interactive docs at **http://localhost:8000/docs**
 
 ### Routes (`App.tsx`)
 ```
-/                        → Tournaments list
-/tournaments             → Tournaments list
+/                        → PlayerDashboard (player's own stats; shows public tournaments if not logged in)
+/dashboard               → PlayerDashboard (alias for /)
+/tournaments             → Public tournament/session list
 /series/:id              → Series leaderboard + sessions
 /sessions/:id            → Session detail (public)
+/players                 → All players list
 /players/:id             → Player profile
+/login                   → Email magic link sign-in
+/claim                   → Enter claim code to link email to player record
 /director                → Director: PIN gate + session list
 /director/sessions/:id   → Director: session management
-/director/players        → Director: player management (add/edit/delete/gender)
+/director/players        → Director: player management (add/edit/delete/gender/claim codes)
+/terms                   → Terms & conditions
 ```
 
 ### Director API (`lib/directorApi.ts`)
@@ -298,6 +346,59 @@ The PIN is read from `localStorage.getItem('directorPin')` and sent as the `X-Di
 ```json
 { "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }] }
 ```
+
+---
+
+## Player Auth & Profile Claiming
+
+### How Sign-In Works
+
+Setpoint uses **Supabase email magic links** — no passwords.
+
+1. Player goes to `/login`, enters their email.
+2. The frontend calls `supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true } })`.
+3. Supabase (via Resend SMTP) sends an email with a magic link to the player.
+4. Player clicks the link → redirects back to the app. Supabase sets a session cookie.
+5. `AuthContext` detects the new session via `onAuthStateChange`, then calls `GET /api/me/` with the JWT.
+6. If a player record is linked, `player` is populated. If not (not yet claimed), `player` is `null`.
+
+### Profile Claiming
+
+Players are created by the director before they ever sign in. To link their email to their player record:
+
+1. Director goes to `/director/players`, finds the player row, clicks "Claim Code" to generate a claim code (e.g. `NITI-4829`).
+2. Director shares the code with the player (out of band).
+3. Player signs in at `/login`, then goes to `/claim` and enters the code.
+4. The frontend calls `POST /api/auth/claim` with `{ code }` and the player's JWT in the `Authorization` header.
+5. The backend validates the JWT, looks up the code in `claim_codes`, links `auth_user_id` on the player row, and marks the code as used.
+6. `AuthContext.refreshPlayer()` is called to update state. Player is redirected to `/dashboard`.
+
+### Auth State in the Frontend
+
+`AuthContext` exposes:
+- `session` — the Supabase session (contains `access_token` JWT)
+- `player` — the linked player record from `GET /api/me/`, or `null` if not claimed yet
+- `loading` — true while the initial auth check is in flight
+- `signOut()` — signs out of Supabase and clears state
+- `refreshPlayer()` — re-fetches the player record (call after profile updates or claiming)
+
+### Authenticated API Calls
+
+Use `playerApi(session)` (from `lib/playerApi.ts`) for any endpoint that requires auth. It creates an axios instance with the `Authorization: Bearer <JWT>` header:
+
+```tsx
+import playerApi from '../lib/playerApi'
+const { session } = useAuth()
+const res = await playerApi(session).get('/api/me/')
+const res = await playerApi(session).put('/api/me/', { name: 'Nitin' })
+```
+
+### Backend Auth Dependencies
+
+Both new routers use dependencies from `routers/auth.py`:
+
+- `get_auth_user` — validates the JWT, returns the Supabase user object. Used in `/api/auth/claim`.
+- `get_current_player` (in `routers/me.py`) — validates the JWT and looks up the linked player. Returns 404 if not yet claimed.
 
 ---
 
@@ -390,10 +491,25 @@ railway variables set SUPABASE_SERVICE_KEY="eyJ..."
 | Variable | Description |
 |----------|-------------|
 | `VITE_SUPABASE_URL` | Supabase project URL |
-| `VITE_SUPABASE_ANON_KEY` | Anon JWT (safe to expose in browser) |
+| `VITE_SUPABASE_ANON_KEY` | Anon JWT (safe to expose in browser — Supabase RLS is the security layer) |
 | `VITE_API_URL` | Railway backend URL |
 
 > **Never** use the service role key in the frontend.
+
+### Supabase Auth Configuration
+These are set in the Supabase dashboard (not env vars), but must be correct for auth to work:
+
+| Setting | Where | Value |
+|---------|-------|-------|
+| Site URL | Auth → URL Configuration | Vercel deployment URL (e.g. `https://setpoint-alpha.vercel.app`) |
+| SMTP provider | Auth → SMTP Settings | Custom SMTP via Resend |
+| SMTP host | Auth → SMTP Settings | `smtp.resend.com` |
+| SMTP port | Auth → SMTP Settings | `465` |
+| SMTP user | Auth → SMTP Settings | `resend` |
+| SMTP password | Auth → SMTP Settings | Resend API key |
+| From address | Auth → SMTP Settings | `noreply@nitinnatarajan.com` |
+
+> **Critical:** If Site URL is set to `localhost`, magic links will redirect players to localhost instead of the live app. Update it every time the Vercel URL changes.
 
 ---
 
@@ -466,6 +582,18 @@ Railway's web UI truncates long values when pasting. Use the CLI (`railway varia
 ### Supabase JWT Keys Format
 The Python `supabase` SDK only accepts legacy JWT format (`eyJ...`). Use the keys from Supabase → Settings → Data API → legacy section, not the newer `sb_secret_` format.
 
+### Supabase Site URL Must Point to Production
+If `Site URL` in Supabase Auth settings is `localhost:5173`, magic link emails will redirect players to localhost, not the live app. Always set it to the Vercel URL.
+
+### Supabase Free Tier Email Rate Limit
+Supabase's built-in email (without custom SMTP) is rate-limited to 2 emails/hour. With multiple players signing in simultaneously this will fail. Custom SMTP via Resend on `nitinnatarajan.com` bypasses this limit.
+
+### Magic Links Use a Hash Token, Not a 6-Digit Code
+`supabase.auth.signInWithOtp({ email })` sends a magic link with a hash token. The `{{ .Token }}` in email templates is that hash — it's not a short numeric OTP. Do not prompt users to enter a code; the link itself handles verification automatically.
+
+### Anon Key Is Intentionally Public
+The `VITE_SUPABASE_ANON_KEY` appears in browser network requests. This is expected — Supabase's security model is RLS policies on the database, not key secrecy. The service role key (bypasses RLS) must never reach the frontend.
+
 ### Session Status Stuck on Draft
 Historical sessions imported before `status` column was added default to `draft`. The public view handles this: if `status = draft` but `game_results` exist, it shows the completed view anyway.
 
@@ -521,6 +649,44 @@ Historical sessions imported before `status` column was added default to `draft`
 ### Director page shows 401
 **Symptom:** All director API calls return 401 Unauthorized.
 **Fix:** The PIN stored in localStorage doesn't match the `DIRECTOR_PIN` env var on Railway. Go to `/director`, log out, and re-enter the correct PIN. If you've changed the PIN on Railway, remember it's a build-time environment variable — you may need to redeploy.
+
+---
+
+### Magic link redirects to localhost
+**Symptom:** Player clicks the magic link email and lands on `localhost:5173`.
+**Fix:** Update **Site URL** in Supabase → Authentication → URL Configuration to the Vercel deployment URL (e.g. `https://setpoint-alpha.vercel.app`).
+
+---
+
+### "Error sending confirmation email"
+**Symptom:** Player tries to sign in and gets an error about email delivery.
+**Fix:**
+1. Check that Resend is connected in Supabase → Auth → SMTP Settings.
+2. Verify that `nitinnatarajan.com` is verified in Resend (both DNS and domain status green).
+3. If DNS was recently changed, wait up to 24 hours for propagation.
+4. Check Resend logs for bounce or rejection details.
+
+---
+
+### Player logs in but sees "claim your profile" instead of dashboard
+**Symptom:** Player authenticated successfully but `player` is null in `AuthContext`.
+**Fix:** The player's `auth_user_id` isn't linked yet. They need to go to `/claim` and enter the code given to them by the director. If the code expired (> 7 days), generate a new one in `/director/players`.
+
+---
+
+### "Invalid or expired claim code"
+**Symptom:** Player enters claim code at `/claim` and gets an error.
+**Fix:**
+1. Verify the code is exactly as generated (case-insensitive input is normalized automatically).
+2. Check if the code was already used — each code can only be claimed once.
+3. Check if the code is older than 7 days — it may have expired. Generate a new one.
+4. Confirm the player is signed in before trying to claim.
+
+---
+
+### "Failed to execute 'fetch': Invalid value" on sign-in
+**Symptom:** Browser console shows a fetch error immediately when the sign-in form is submitted.
+**Fix:** The `VITE_SUPABASE_ANON_KEY` in Vercel has a hidden newline character from copy-paste wrapping. Go to Vercel → Settings → Environment Variables, delete the variable, and re-paste the key as a single unbroken string (no line breaks).
 
 ---
 

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, Navigate } from 'react-router-dom'
 import api from '../lib/api'
 import type { Session, GameResult } from '../types'
 
@@ -301,6 +301,13 @@ export default function SessionDetail() {
 
   if (loading) return <div className="p-8 text-center">Loading...</div>
   if (!session) return <div className="p-8 text-center">Session not found</div>
+
+  // Pool+playoff sessions are served by a dedicated public page
+  const POOL_TYPES = ['pool_playoff_single_elim', 'pool_playoff_double_elim']
+  const competitionType = session.tournament_series?.competition_type_id
+  if (competitionType && POOL_TYPES.includes(competitionType)) {
+    return <Navigate to={`/pool/${session.id}`} replace />
+  }
 
   // Active sessions get the live view
   if (session.status === 'active') {

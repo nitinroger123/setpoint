@@ -56,7 +56,7 @@ Both `.env.example` files contain working keys pointed at the shared Supabase de
 
 **Verify everything is working:**
 - Backend: http://localhost:8000/docs — should show the interactive API explorer
-- Frontend: http://localhost:5173 — should show the tournament list
+- Frontend: http://localhost:5173 — should show the player dashboard (or public tournaments if not signed in)
 
 ---
 
@@ -65,32 +65,31 @@ Both `.env.example` files contain working keys pointed at the shared Supabase de
 ```
 Browser
   │
-  │  axios (lib/api.ts or lib/directorApi.ts)
-  ▼
-FastAPI (backend/main.py)
-  │  registers 5 routers:
-  │  /api/players   → routers/players.py
-  │  /api/sessions  → routers/sessions.py
-  │  /api/series    → routers/series.py
-  │  /api/games     → routers/games.py
-  │  /api/director  → routers/director.py  ← PIN-protected
-  │
-  │  database.py: get_supabase() + fetch_all()
-  ▼
-Supabase (PostgreSQL)
+  ├── axios (lib/api.ts or lib/directorApi.ts)        ─► FastAPI (backend/main.py)
+  ├── axios + JWT (lib/playerApi.ts)                  ─►   registers 7 routers:
+  │                                                         /api/players   → routers/players.py
+  └── Supabase JS (lib/supabase.ts)                        /api/sessions  → routers/sessions.py
+        │  auth.signInWithOtp / onAuthStateChange           /api/series    → routers/series.py
+        ▼                                                    /api/games     → routers/games.py
+  Supabase Auth ──────────────────────────────────────     /api/director  → routers/director.py  ← PIN-protected
+        │                                                    /api/auth      → routers/auth.py     ← JWT-validated
+        ▼                                                    /api/me        → routers/me.py       ← JWT-validated
+  Supabase (PostgreSQL)                              ◄──  database.py: get_supabase() + fetch_all()
   Tables: tournament_formats, tournament_series, players, sessions,
           session_roster, round_assignments, round_games,
-          game_results, session_standings, session_media
+          game_results, session_standings, session_media,
+          claim_codes, organizations, org_memberships
 ```
 
-### Two API clients on the frontend
+### Three API clients on the frontend
 
 | Client | File | Used for | Auth |
 |--------|------|----------|------|
-| `api` | `lib/api.ts` | All public-facing pages | None |
+| `api` | `lib/api.ts` | Public-facing pages (players, sessions, series) | None |
 | `directorApi` | `lib/directorApi.ts` | Director pages only | Reads PIN from `localStorage`, sends as `X-Director-Pin` header |
+| `playerApi(session)` | `lib/playerApi.ts` | Player self-service endpoints (`/api/me/*`, `/api/auth/*`) | Supabase JWT from `session.access_token` |
 
-The two clients share the same `baseURL` (`VITE_API_URL`). `directorApi` just adds the header.
+All three share the same `baseURL` (`VITE_API_URL`).
 
 ### Session lifecycle
 
@@ -239,7 +238,60 @@ sb.table("sessions").update({"status": "completed"})
 
 ---
 
-### 5. Player profile loads (`/players/:id`)
+### 5. Player signs in (magic link flow)
+
+**Frontend: `Login.tsx`**
+```
+User enters email → submits form
+  → supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true } })
+  → Supabase (via Resend SMTP) emails a magic link to the player
+  → UI shows "Check your email" confirmation screen
+```
+
+**When player clicks the link:**
+```
+Browser opens the Vercel app with a hash fragment containing the token.
+Supabase JS picks it up automatically — no manual verification step.
+  → onAuthStateChange fires with event SIGNED_IN + new session
+  → AuthContext calls GET /api/me/ with the JWT
+      - If player record found: sets player in context → redirects to /dashboard
+      - If not found (404): sets player=null → player sees "Claim your profile" prompt
+```
+
+**Backend: `GET /api/me/` (`routers/me.py` → `get_my_profile()`)**
+```python
+# Dependency: get_current_player()
+#   → validates JWT via sb.auth.get_user(token)
+#   → looks up players row WHERE auth_user_id = auth_user.id
+#   → raises 404 if no row found (not yet claimed)
+# Returns: player fields + orgs list from org_memberships
+```
+
+---
+
+### 6. Player claims their profile (`/claim`)
+
+**Frontend: `Claim.tsx`**
+```
+Player enters claim code (e.g. "NITI-4829")
+  → playerApi(session).post('/api/auth/claim', { code })
+  → on success: refreshPlayer() → navigate('/dashboard')
+```
+
+**Backend: `POST /api/auth/claim` (`routers/auth.py` → `claim_profile()`)**
+```python
+# 1. Validate JWT → get auth_user_id
+# 2. Look up claim_codes WHERE code=? AND claimed_at IS NULL AND expires_at > now
+# 3. Ensure player.auth_user_id is null (or already matches this user)
+# 4. UPDATE players SET auth_user_id = auth_user_id WHERE id = player_id
+# 5. UPDATE claim_codes SET claimed_at = now WHERE id = code_row.id
+# 6. Upsert into org_memberships (adds player to vballnyc org)
+# 7. Return updated player row
+```
+
+---
+
+### 7. Player profile loads (`/players/:id`)
 
 **Frontend: `PlayerProfile.tsx`**
 ```
@@ -368,6 +420,31 @@ FastAPI matches routes top-to-bottom. Fixed path segments must come before param
 @router.get("/{player_id}/profile")
 ```
 
+### Player auth
+
+Endpoints that require a signed-in player use `Depends(get_current_player)` from `routers/me.py`. This validates the JWT and returns the player row:
+
+```python
+from routers.me import get_current_player
+
+@router.get("/something")
+def my_endpoint(player: dict = Depends(get_current_player)):
+    # player is the full players row dict
+    return {"player_id": player["id"]}
+```
+
+Returns 401 if the JWT is missing/invalid, or 404 if no player row is linked to the auth user.
+
+If you only need to validate the JWT without requiring a linked player (e.g. for the claim endpoint itself), use `get_auth_user` from `routers/auth.py` directly:
+
+```python
+from routers.auth import get_auth_user
+
+@router.post("/something")
+def my_endpoint(auth_user=Depends(get_auth_user)):
+    auth_user_id = auth_user.id
+```
+
 ### Director auth
 
 Protected endpoints use `Depends(require_director)`:
@@ -428,6 +505,42 @@ api.get('/api/sessions')
 // Director actions
 directorApi.post(`/api/director/sessions/${id}/activate`)
 directorApi.delete(`/api/director/sessions/${id}`)
+```
+
+### Player-authenticated pages use `playerApi(session)`
+
+For endpoints under `/api/me/` or `/api/auth/`, use `playerApi` with the session from `useAuth()`:
+
+```tsx
+import playerApi from '../lib/playerApi'
+import { useAuth } from '../context/AuthContext'
+
+function MyComponent() {
+  const { session, player, refreshPlayer } = useAuth()
+
+  async function updateProfile() {
+    await playerApi(session).put('/api/me/', { name: 'Nitin' })
+    await refreshPlayer()  // re-fetch to update AuthContext state
+  }
+}
+```
+
+If `session` is null (user not logged in), `playerApi` sends no `Authorization` header and the backend will return 401.
+
+### Reading auth state
+
+```tsx
+import { useAuth } from '../context/AuthContext'
+
+function MyComponent() {
+  const { session, player, loading } = useAuth()
+
+  if (loading) return <div>Loading…</div>
+  if (!session) return <div>Not signed in</div>
+  if (!player) return <div>Please claim your profile</div>
+
+  return <div>Hello {player.name}</div>
+}
 ```
 
 ### TypeScript types
@@ -652,3 +765,12 @@ Don't query `game_results` for leaderboard or profile totals. `session_standings
 
 ### Supabase JWT key format
 The Python `supabase` SDK only accepts the legacy `eyJ...` JWT format. Don't use `sb_secret_` format keys even if Supabase suggests them.
+
+### Supabase Site URL must be the live Vercel URL
+In Supabase → Auth → URL Configuration, `Site URL` must point to the production Vercel URL (e.g. `https://setpoint-alpha.vercel.app`). If it points to localhost, magic link emails will redirect players to localhost.
+
+### Resend custom SMTP is required for volume
+Supabase's built-in email is limited to 2 emails/hour on the free tier. Resend is connected as a custom SMTP provider using `nitinnatarajan.com`. The DNS for that domain (DKIM, SPF, MX, DMARC) is managed in Namecheap. If players report email delivery issues, check Resend dashboard logs and the Supabase SMTP settings.
+
+### `VITE_*` env vars must not have newlines
+Supabase keys are long and can pick up invisible newline characters when copy-pasted into Vercel's UI. A newline in `VITE_SUPABASE_ANON_KEY` produces a `Failed to execute 'fetch': Invalid value` error at runtime. Always paste as a single line, or use the Vercel CLI.

@@ -6,11 +6,26 @@ from config import GAMES_PER_SESSION
 router = APIRouter()
 
 @router.get("")
-def list_series(format_id: str | None = None):
+def list_series(format_id: str | None = None, competition_type_id: str | None = None):
+    """
+    List active tournament series. Optionally filter by format_id (legacy) or
+    competition_type_id ('round_robin', 'pool_playoff_single_elim', etc.).
+    Includes joined metadata from lookup tables.
+    """
     sb = get_supabase()
-    query = sb.table("tournament_series").select("*").eq("active", True).order("name")
+    query = (
+        sb.table("tournament_series")
+        .select(
+            "*, game_formats(id, name, team_size), competition_types(id, name), "
+            "levels(id, name, sort_order), surfaces(id, name), divisions(id, name)"
+        )
+        .eq("active", True)
+        .order("name")
+    )
     if format_id:
         query = query.eq("format_id", format_id)
+    if competition_type_id:
+        query = query.eq("competition_type_id", competition_type_id)
     return query.execute().data
 
 @router.get("/{series_id}/leaderboard")
@@ -63,8 +78,21 @@ def get_leaderboard(series_id: str):
 
 @router.get("/{series_id}")
 def get_series(series_id: str):
+    """
+    Get one series with its sessions list and joined lookup table metadata
+    (game_formats, competition_types, levels, surfaces, divisions).
+    """
     sb = get_supabase()
-    series = sb.table("tournament_series").select("*").eq("id", series_id).single().execute()
+    series = (
+        sb.table("tournament_series")
+        .select(
+            "*, game_formats(id, name, team_size), competition_types(id, name), "
+            "levels(id, name, sort_order), surfaces(id, name), divisions(id, name)"
+        )
+        .eq("id", series_id)
+        .single()
+        .execute()
+    )
     if not series.data:
         raise HTTPException(status_code=404, detail="Series not found")
     sessions = sb.table("sessions").select("*").eq("series_id", series_id).order("date", desc=True).execute()

@@ -27,30 +27,184 @@ def require_director(x_director_pin: str = Header(default=None)):
         raise HTTPException(status_code=401, detail="Invalid director PIN")
 
 
+# ---------- Series ----------
+
+@router.get("/series")
+def list_series(_: None = Depends(require_director)):
+    """
+    List all tournament series visible to this director, including inactive ones.
+    Returns joined metadata from game_formats, competition_types, levels, surfaces, divisions.
+    (When org-scoped roles are added, this will filter by the director's organization.)
+    """
+    sb = get_supabase()
+    res = (
+        sb.table("tournament_series")
+        .select(
+            "*, game_formats(id, name, team_size), competition_types(id, name), "
+            "levels(id, name, sort_order), surfaces(id, name), divisions(id, name)"
+        )
+        .order("name")
+        .execute()
+    )
+    return res.data
+
+
+@router.post("/series")
+def create_series(body: dict, _: None = Depends(require_director)):
+    """
+    Create a new tournament series with full metadata.
+    organization_id is accepted but not yet enforced (placeholder for future org-scoped roles).
+
+    Required: name
+    Optional: location, description, format_id, game_format_id, competition_type_id,
+              level_id, surface_id, division_id, active, organization_id
+    """
+    if not body.get("name"):
+        raise HTTPException(status_code=400, detail="name is required")
+    sb = get_supabase()
+    allowed_fields = {
+        "name", "location", "description", "format_id",
+        "game_format_id", "competition_type_id", "level_id",
+        "surface_id", "division_id", "active", "organization_id",
+    }
+    data = {k: v for k, v in body.items() if k in allowed_fields and v is not None}
+    data.setdefault("active", True)
+    # format_id defaults to 'revco-roundrobin-4s' for round-robin series;
+    # for pool+playoff series it is left null or explicitly passed.
+    if "format_id" not in data and data.get("competition_type_id") == "round_robin":
+        data["format_id"] = "revco-roundrobin-4s"
+    res = sb.table("tournament_series").insert(data).execute()
+    return res.data[0]
+
+
+@router.put("/series/{series_id}")
+def update_series(series_id: str, body: dict, _: None = Depends(require_director)):
+    """
+    Update any metadata field on a tournament series.
+    Only fields present in the request body are updated.
+    """
+    sb = get_supabase()
+    allowed_fields = {
+        "name", "location", "description", "format_id",
+        "game_format_id", "competition_type_id", "level_id",
+        "surface_id", "division_id", "active",
+    }
+    updates = {k: v for k, v in body.items() if k in allowed_fields}
+    if not updates:
+        raise HTTPException(status_code=400, detail="No valid fields provided.")
+    res = (
+        sb.table("tournament_series")
+        .update(updates)
+        .eq("id", series_id)
+        .execute()
+    )
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Series not found.")
+    return res.data[0]
+
+
+@router.delete("/series/{series_id}")
+def delete_series(series_id: str, _: None = Depends(require_director)):
+    """
+    Delete a tournament series and all linked sessions.
+    Sessions cascade-delete to roster, assignments, games, standings,
+    and all pool+playoff data (pool_games, bracket_games, etc.).
+    Intended for cleaning up test data — use with care.
+    """
+    sb = get_supabase()
+    # Delete sessions first so cascade constraints are respected
+    sessions = (
+        sb.table("sessions").select("id").eq("series_id", series_id).execute().data
+    )
+    for session in sessions:
+        sb.table("sessions").delete().eq("id", session["id"]).execute()
+    sb.table("tournament_series").delete().eq("id", series_id).execute()
+    return {"ok": True, "sessions_deleted": len(sessions)}
+
+
 # ---------- Sessions ----------
 
 @router.get("/sessions")
 def list_sessions(_: None = Depends(require_director)):
-    """List all sessions with their series name, newest first."""
+    """
+    List all sessions with their series name and competition type, newest first.
+    competition_type_id on the series is included so the frontend can route
+    pool+playoff sessions to the correct director page.
+    """
     sb = get_supabase()
-    res = sb.table("sessions") \
-        .select("*, tournament_series(name)") \
-        .order("date", desc=True) \
+    res = (
+        sb.table("sessions")
+        .select("*, tournament_series(name, competition_type_id)")
+        .order("date", desc=True)
         .execute()
+    )
     return res.data
 
 
 @router.post("/sessions")
 def create_session(body: dict, _: None = Depends(require_director)):
-    """Create a new draft session. Requires date; series_id and format_id are optional."""
+    """
+    Create a new draft session.
+    Requires date; series_id and format_id are optional.
+    If the linked series is a pool+playoff competition type, automatically
+    pre-populates session_stage_scoring from format_stage_scoring_defaults
+    and creates a default session_pool_config row.
+    """
     sb = get_supabase()
     res = sb.table("sessions").insert({
-        "date": body["date"],
+        "date":      body["date"],
         "format_id": body.get("format_id", "revco-roundrobin-4s"),
         "series_id": body.get("series_id"),
-        "status": "draft",
+        "status":    "draft",
     }).execute()
-    return res.data[0]
+    session = res.data[0]
+    session_id = session["id"]
+
+    # If a series is linked, check its competition type and pre-populate configs
+    series_id = body.get("series_id")
+    if series_id:
+        series_res = (
+            sb.table("tournament_series")
+            .select("competition_type_id, game_format_id")
+            .eq("id", series_id)
+            .single()
+            .execute()
+        )
+        if series_res.data:
+            competition_type_id = series_res.data.get("competition_type_id")
+            game_format_id      = series_res.data.get("game_format_id")
+
+            pool_types = {"pool_playoff_single_elim", "pool_playoff_double_elim"}
+            if competition_type_id in pool_types and game_format_id:
+                # Fetch scoring defaults for this format + competition type combination
+                defaults = (
+                    sb.table("format_stage_scoring_defaults")
+                    .select("*")
+                    .eq("game_format_id", game_format_id)
+                    .eq("competition_type_id", competition_type_id)
+                    .execute()
+                    .data
+                )
+                # Insert a session_stage_scoring row for each default stage
+                for d in defaults:
+                    sb.table("session_stage_scoring").insert({
+                        "session_id":       session_id,
+                        "stage":            d["stage"],
+                        "sets_per_match":   d["sets_per_match"],
+                        "pool_play_format": d["pool_play_format"],
+                        "points_to_win":    d["points_to_win"],
+                        "win_by":           d["win_by"],
+                        "cap":              d.get("cap"),
+                    }).execute()
+
+                # Create a default pool config row
+                sb.table("session_pool_config").insert({
+                    "session_id":               session_id,
+                    "teams_per_pool":           4,
+                    "teams_advancing_per_pool": 2,
+                }).execute()
+
+    return session
 
 
 @router.get("/sessions/{session_id}")

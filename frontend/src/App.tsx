@@ -7,6 +7,8 @@ import Players from './pages/Players'
 import Director from './pages/Director'
 import DirectorSession from './pages/DirectorSession'
 import DirectorPlayers from './pages/DirectorPlayers'
+import DirectorPoolPlayoff from './pages/DirectorPoolPlayoff'
+import PoolPlayoffDetail from './pages/PoolPlayoffDetail'
 import Login from './pages/Login'
 import Claim from './pages/Claim'
 import PlayerDashboard from './pages/PlayerDashboard'
@@ -146,6 +148,10 @@ export default function App() {
               <Route path="/director" element={<Director />} />
               <Route path="/director/sessions/:id" element={<DirectorSession />} />
               <Route path="/director/players" element={<DirectorPlayers />} />
+              {/* Pool play + bracket director workflow */}
+              <Route path="/director/pool/:id" element={<DirectorPoolPlayoff />} />
+              {/* Public pool+playoff session view */}
+              <Route path="/pool/:id" element={<PoolPlayoffDetail />} />
               <Route path="/terms" element={<Terms />} />
             </Routes>
           </main>

@@ -80,6 +80,34 @@ export default function SeriesDetail() {
         <Link to="/tournaments" className="text-gray-600 hover:underline text-sm mb-4 block">← Back to Tournaments</Link>
         <h1 className="text-3xl font-bold mb-1">{series.name}</h1>
         {series.location && <p className="text-gray-500">📍 {series.location}</p>}
+        {/* Metadata badges: division, level, surface, format */}
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {series.divisions?.name && (
+            <span className="bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded-full font-medium">
+              {series.divisions.name}
+            </span>
+          )}
+          {series.levels?.name && (
+            <span className="bg-purple-50 text-purple-700 text-xs px-2 py-0.5 rounded-full font-medium">
+              {series.levels.name}
+            </span>
+          )}
+          {series.surfaces?.name && (
+            <span className="bg-green-50 text-green-700 text-xs px-2 py-0.5 rounded-full font-medium">
+              {series.surfaces.name}
+            </span>
+          )}
+          {series.game_formats?.name && (
+            <span className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full font-medium">
+              {series.game_formats.name}
+            </span>
+          )}
+          {series.competition_types?.name && (
+            <span className="bg-primary/10 text-primary text-xs px-2 py-0.5 rounded-full font-medium">
+              {series.competition_types.name}
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-6 items-start">

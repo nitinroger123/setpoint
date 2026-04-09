@@ -132,6 +132,7 @@ function GameCard({
 
   async function clearScore() {
     if (!game) return
+    if (!window.confirm('Clear this score? The game will need to be re-scored.')) return
     await directorApi.delete(
       `/api/director/sessions/${sessionId}/rounds/${game.round_number}/games/${game.game_number}/score`
     )
@@ -276,6 +277,7 @@ export default function DirectorSession() {
 
   async function removePlayer(playerId: string) {
     if (!session) return
+    if (!window.confirm('Remove this player from the roster?')) return
     await directorApi.delete(`/api/director/sessions/${session.id}/roster/${playerId}`)
     setSession(s => s ? { ...s, roster: s.roster.filter(p => p.id !== playerId) } : s)
   }
@@ -428,6 +430,7 @@ export default function DirectorSession() {
 
   async function deleteMedia(mediaId: string) {
     if (!session) return
+    if (!window.confirm('Delete this media item? This cannot be undone.')) return
     await directorApi.delete(`/api/director/sessions/${session.id}/media/${mediaId}`)
     setMedia(prev => prev.filter(m => m.id !== mediaId))
   }
