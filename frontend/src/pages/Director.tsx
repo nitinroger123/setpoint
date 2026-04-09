@@ -376,7 +376,7 @@ export default function Director() {
     if (!confirmed) return
     setDeletingId(series.id)
     try {
-      const res = await directorApi.delete(`/api/director/series/${series.id}`)
+      await directorApi.delete(`/api/director/series/${series.id}`)
       // Remove deleted series from list
       setSeriesList(prev => prev.filter(s => s.id !== series.id))
       // Remove sessions that belonged to this series

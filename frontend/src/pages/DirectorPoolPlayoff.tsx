@@ -747,11 +747,9 @@ function PlayInScorer({
 
 function BracketTab({
   session,
-  standings,
   onRefresh,
 }: {
   session: PoolSession
-  standings: Record<string, PoolStandingsRow[]>
   onRefresh: () => void
 }) {
   const [generating, setGenerating] = useState(false)
@@ -1037,7 +1035,7 @@ export default function DirectorPoolPlayoff() {
         <PoolPlayTab session={session} standings={standings} onRefresh={loadData} />
       )}
       {activeTab === 'bracket' && (
-        <BracketTab session={session} standings={standings} onRefresh={loadData} />
+        <BracketTab session={session} onRefresh={loadData} />
       )}
     </div>
   )
