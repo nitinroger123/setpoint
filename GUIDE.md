@@ -74,7 +74,7 @@ setpoint/
 │   │   ├── session.py           # SessionCreate, SessionOut
 │   │   └── game.py
 │   └── routers/
-│       ├── players.py           # GET /api/players, /profile, /teammate-stats
+│       ├── players.py           # GET /api/players, /profile, /teammate-stats, /nemesis
 │       ├── sessions.py          # GET /api/sessions, /api/sessions/:id (public)
 │       ├── series.py            # GET /api/series, /api/series/:id/leaderboard
 │       ├── games.py             # POST /api/games

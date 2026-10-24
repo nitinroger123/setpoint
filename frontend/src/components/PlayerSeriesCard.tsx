@@ -51,6 +51,15 @@ interface TeammateData {
   worst_teammates: TeammateStat[]
 }
 
+interface NemesisStat {
+  id: string
+  name: string
+  games: number
+  wins: number
+  losses: number
+  win_pct: number
+}
+
 type SortDir = 'asc' | 'desc'
 
 // ── Sorting hook ──────────────────────────────────────────────────────────────
@@ -320,15 +329,57 @@ function FullTeammateTable({ teammates }: { teammates: TeammateStat[] }) {
   )
 }
 
+// ── Nemesis card ──────────────────────────────────────────────────────────────
+
+/**
+ * Compact display for the single toughest opponent this series.
+ * Shows the nemesis player's name (linked), game count, losses, and win rate.
+ */
+function NemesisCard({ nemesis }: { nemesis: NemesisStat }) {
+  return (
+    <div>
+      <p className="text-sm font-semibold mb-0.5">Nemesis</p>
+      <p className="text-xs text-gray-400 mb-2">Toughest opponent (min. 3 games)</p>
+      <div className="border rounded-lg overflow-hidden">
+        <table className="w-full text-xs">
+          <thead className="bg-red-50 text-red-700 uppercase">
+            <tr>
+              <th className="px-3 py-2 text-left">Player</th>
+              <th className="px-3 py-2 text-center">G</th>
+              <th className="px-3 py-2 text-center">L</th>
+              <th className="px-3 py-2 text-center">Win%</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="bg-white">
+              <td className="px-3 py-2 font-medium">
+                <Link
+                  to={`/players/${nemesis.id}`}
+                  className="text-primary underline underline-offset-2 hover:text-primary-lighter"
+                >
+                  {nemesis.name}
+                </Link>
+              </td>
+              <td className="px-3 py-2 text-center text-gray-500">{nemesis.games}</td>
+              <td className="px-3 py-2 text-center font-medium text-red-500">{nemesis.losses}</td>
+              <td className="px-3 py-2 text-center font-medium text-red-500">{nemesis.win_pct}%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 // ── Main export ───────────────────────────────────────────────────────────────
 
 /**
  * One card per tournament series. Shows:
  *  - Header: series name (linked to series page) + session count + win rate
  *  - Medal banner: 1st / 2nd / 3rd / 4th place finish counts
- *  - Body: sortable results table (left) + sortable teammate chemistry (right)
+ *  - Body: sortable results table (left) + teammate chemistry + nemesis (right)
  *
- * Fetches its own teammate stats scoped to this series on mount.
+ * Fetches teammate stats and nemesis data scoped to this series on mount.
  */
 export function PlayerSeriesCard({
   group,
@@ -338,13 +389,18 @@ export function PlayerSeriesCard({
   playerId: string
 }) {
   const [teammates, setTeammates] = useState<TeammateData | null>(null)
+  const [nemesis, setNemesis] = useState<NemesisStat | null>(null)
   const [showFullHistory, setShowFullHistory] = useState(false)
 
   useEffect(() => {
     const params = group.series_id ? `?series_id=${group.series_id}` : ''
-    api.get(`/api/players/${playerId}/teammate-stats${params}`)
-      .then(res => setTeammates(res.data))
-      .catch(() => {})
+    Promise.all([
+      api.get(`/api/players/${playerId}/teammate-stats${params}`),
+      api.get(`/api/players/${playerId}/nemesis${params}`),
+    ]).then(([teammateRes, nemesisRes]) => {
+      setTeammates(teammateRes.data)
+      setNemesis(nemesisRes.data.nemesis ?? null)
+    }).catch(() => {})
   }, [playerId, group.series_id])
 
   return (
@@ -398,40 +454,47 @@ export function PlayerSeriesCard({
           <ResultsTable sessions={group.sessions} />
         </div>
 
-        {/* Teammate chemistry */}
-        {teammates && (
+        {/* Teammate chemistry + nemesis */}
+        {(teammates || nemesis) && (
           <div className="space-y-4">
-            <TeammateTable
-              title="Best Teammates"
-              subtitle="Highest win % together"
-              teammates={teammates.top_teammates}
-              variant="best"
-            />
-            <TeammateTable
-              title="Tough Pairings"
-              subtitle="Lowest win % together"
-              teammates={teammates.worst_teammates}
-              variant="tough"
-            />
+            {teammates && (
+              <>
+                <TeammateTable
+                  title="Best Teammates"
+                  subtitle="Highest win % together"
+                  teammates={teammates.top_teammates}
+                  variant="best"
+                />
+                <TeammateTable
+                  title="Tough Pairings"
+                  subtitle="Lowest win % together"
+                  teammates={teammates.worst_teammates}
+                  variant="tough"
+                />
 
-            {/* Expandable full history */}
-            {teammates.most_played.length > 0 && (
-              <div>
-                <button
-                  onClick={() => setShowFullHistory(s => !s)}
-                  className="text-xs text-primary underline underline-offset-2 hover:text-primary-lighter transition-colors"
-                >
-                  {showFullHistory
-                    ? 'Hide teammate history'
-                    : `View full teammate history (${teammates.most_played.length})`}
-                </button>
-                {showFullHistory && <FullTeammateTable teammates={teammates.most_played} />}
-              </div>
+                {/* Expandable full history */}
+                {teammates.most_played.length > 0 && (
+                  <div>
+                    <button
+                      onClick={() => setShowFullHistory(s => !s)}
+                      className="text-xs text-primary underline underline-offset-2 hover:text-primary-lighter transition-colors"
+                    >
+                      {showFullHistory
+                        ? 'Hide teammate history'
+                        : `View full teammate history (${teammates.most_played.length})`}
+                    </button>
+                    {showFullHistory && <FullTeammateTable teammates={teammates.most_played} />}
+                  </div>
+                )}
+
+                {teammates.top_teammates.length === 0 && teammates.worst_teammates.length === 0 && teammates.most_played.length === 0 && (
+                  <p className="text-xs text-gray-400 italic">Not enough games yet for teammate stats.</p>
+                )}
+              </>
             )}
 
-            {teammates.top_teammates.length === 0 && teammates.worst_teammates.length === 0 && teammates.most_played.length === 0 && (
-              <p className="text-xs text-gray-400 italic">Not enough games yet for teammate stats.</p>
-            )}
+            {/* Nemesis — shown when there are enough head-to-head games */}
+            {nemesis && <NemesisCard nemesis={nemesis} />}
           </div>
         )}
       </div>

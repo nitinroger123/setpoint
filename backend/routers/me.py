@@ -26,7 +26,7 @@ def get_current_player(authorization: str = Header(default=None)):
         .maybe_single() \
         .execute()
 
-    if not result.data:
+    if not result or not result.data:
         raise HTTPException(
             status_code=404,
             detail="No player profile linked to this account. Please claim your profile first."

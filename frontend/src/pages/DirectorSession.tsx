@@ -544,7 +544,7 @@ export default function DirectorSession() {
               <button
                 onClick={activateSession}
                 disabled={activating}
-                className="bg-green-600 text-white px-5 py-2 rounded-lg text-sm font-semibold shadow-sm hover:shadow hover:bg-green-700 transition-all disabled:opacity-50"
+                className="bg-primary text-white px-5 py-2 rounded-lg text-sm font-semibold shadow-sm hover:shadow hover:bg-primary-light transition-all disabled:opacity-50"
               >
                 {activating ? 'Starting…' : 'Start Session'}
               </button>
@@ -627,7 +627,7 @@ export default function DirectorSession() {
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
-          <button onClick={addPlayer} disabled={!addPlayerId} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-40">
+          <button onClick={addPlayer} disabled={!addPlayerId} className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-primary-light disabled:opacity-50">
             Add
           </button>
         </div>
@@ -688,7 +688,7 @@ export default function DirectorSession() {
           {ROUNDS.map(r => (
             <button key={r} onClick={() => setActiveRound(r)}
               className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
-                activeRound === r ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+                activeRound === r ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
               Round {r}
@@ -814,7 +814,7 @@ export default function DirectorSession() {
 
         {/* Upload photo */}
         <div className="flex gap-2 mb-2 items-center">
-          <label className={`cursor-pointer bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 ${uploadingFile ? 'opacity-40 pointer-events-none' : ''}`}>
+          <label className={`cursor-pointer bg-primary text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-primary-light ${uploadingFile ? 'opacity-50 pointer-events-none' : ''}`}>
             {uploadingFile ? 'Uploading…' : '📷 Upload Photo'}
             <input type="file" accept="image/*" className="hidden" onChange={uploadFile} disabled={uploadingFile} />
           </label>
@@ -842,7 +842,7 @@ export default function DirectorSession() {
           <button
             type="submit"
             disabled={addingMedia || !mediaUrl.trim()}
-            className="bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-40"
+            className="bg-primary text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-primary-light disabled:opacity-50"
           >
             {addingMedia ? 'Adding…' : 'Add URL'}
           </button>

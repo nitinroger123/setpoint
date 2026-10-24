@@ -293,12 +293,13 @@ Player enters claim code (e.g. "NITI-4829")
 
 ### 7. Player profile loads (`/players/:id`)
 
-**Frontend: `PlayerProfile.tsx`**
+**Frontend: `PlayerProfile.tsx`** and **`PlayerSeriesCard.tsx`**
+
+`PlayerProfile.tsx` fetches the profile and renders one `PlayerSeriesCard` per series group. Each `PlayerSeriesCard` fires two parallel requests on mount:
 ```
-# Two parallel requests:
 Promise.all([
-  api.get('/api/players/<id>/profile'),
-  api.get('/api/players/<id>/teammate-stats'),
+  api.get('/api/players/<id>/teammate-stats?series_id=<sid>'),
+  api.get('/api/players/<id>/nemesis?series_id=<sid>'),
 ])
 ```
 
@@ -319,6 +320,23 @@ Promise.all([
 # 4. For each round, attribute wins/games to all teammates in that round
 # 5. Filter: >= 8 games together
 # 6. Top 5: sort by win% desc | Worst 5: sort by win% asc
+```
+
+`get_player_nemesis()`:
+```python
+# 1. Resolve completed sessions for the player (+ optional series filter)
+# 2. Split sessions by competition_type_id: round_robin vs pool play
+# Round-robin path:
+#   - round_assignments → player's team per (session, round)
+#   - round_games → which games were played and who won each
+#   - Attribute win/loss per game to every player on the opposing team
+# Pool play path:
+#   - session_team_players → player's team_id(s) in pool sessions
+#   - pool_games + play_in_games + bracket_games → scored games
+#   - Per-set counting (matches pool standings logic)
+#   - Attribute set wins/losses to every player on opponent team
+# 3. Filter: >= 3 head-to-head games
+# 4. Return the single opponent with the lowest win rate
 ```
 
 ---
@@ -636,7 +654,7 @@ The player profile pulls from two places:
 - **`round_assignments` + `game_results`** — for round-level stats (teammate chemistry, per-round win rates)
 
 If your new stat is session-level, add it to `get_player_profile()` in `players.py`.
-If it requires round-level data, add a new endpoint like `/teammate-stats` and fetch it in parallel in `PlayerProfile.tsx`.
+If it requires round-level data, add a new endpoint like `/teammate-stats` or `/nemesis` and fetch it in parallel inside `PlayerSeriesCard`'s `useEffect`.
 
 ---
 

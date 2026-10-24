@@ -309,7 +309,7 @@ function NewSeriesForm({
         </button>
         <button
           type="submit"
-          disabled={saving || !name.trim()}
+          disabled={saving}
           className="bg-primary text-white font-semibold px-4 py-2 rounded-lg shadow-sm hover:shadow hover:bg-primary-light transition-all disabled:opacity-50"
         >
           {saving ? 'Creating…' : 'Create Series'}
@@ -426,19 +426,19 @@ export default function Director() {
         <div className="flex gap-2 flex-wrap">
           <Link
             to="/director/players"
-            className="bg-white border-2 border-primary/20 text-primary font-medium px-4 py-2 rounded-lg hover:border-primary hover:bg-primary/5 transition-colors"
+            className="bg-white border-2 border-primary/40 text-primary font-medium px-4 py-2 rounded-lg hover:border-primary hover:bg-primary/5 transition-colors"
           >
             Players
           </Link>
           <button
             onClick={() => { setShowNewSeries(s => !s); setShowNewSession(false) }}
-            className="bg-white border-2 border-primary/20 text-primary font-medium px-4 py-2 rounded-lg hover:border-primary hover:bg-primary/5 transition-colors"
+            className="bg-white border-2 border-primary/40 text-primary font-medium px-4 py-2 rounded-lg hover:border-primary hover:bg-primary/5 transition-colors"
           >
             + New Series
           </button>
           <button
             onClick={() => { setShowNewSession(s => !s); setShowNewSeries(false) }}
-            className="bg-white border-2 border-primary/20 text-primary font-medium px-4 py-2 rounded-lg hover:border-primary hover:bg-primary/5 transition-colors"
+            className="bg-white border-2 border-primary/40 text-primary font-medium px-4 py-2 rounded-lg hover:border-primary hover:bg-primary/5 transition-colors"
           >
             + New Session
           </button>

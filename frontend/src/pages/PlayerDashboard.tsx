@@ -268,8 +268,7 @@ export default function PlayerDashboard() {
               <button
                 type="submit"
                 disabled={savingProfile}
-                className="appearance-none text-sm px-4 py-1.5 rounded-lg font-semibold transition-colors disabled:opacity-50"
-                style={{ backgroundColor: '#122A1C', color: '#ffffff' }}
+                className="bg-primary text-white text-sm px-4 py-1.5 rounded-lg font-semibold transition-colors disabled:opacity-50"
               >
                 {savingProfile ? 'Saving…' : 'Save'}
               </button>

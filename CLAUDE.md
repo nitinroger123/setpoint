@@ -64,7 +64,7 @@ backend/
   standings_helper.py        — compute_live_standings(): shared by director + public session views
   pool_playoff_helper.py     — Pure logic: pool standings, bracket seeding, score validation (no DB calls)
   routers/
-    players.py               — /api/players: list, profile, teammate-stats
+    players.py               — /api/players: list, profile, teammate-stats, nemesis
     sessions.py              — /api/sessions: list, get (branches on competition_type + status), lookups
     series.py                — /api/series: list (with competition_type filter), get, leaderboard
     games.py                 — /api/games
@@ -252,6 +252,9 @@ The `organizations` and `org_memberships` tables already exist (migration 007). 
 
 ### Courts field for scheduling
 The director mentioned wanting to enter the number of available courts when setting up a pool+playoff tournament, to drive scheduling/court rotation logic. Not yet implemented. If adding it, it belongs on `session_pool_config`.
+
+### Button style consistency (backlog)
+All director and player-facing buttons should be standardized to a two-weight outline system (no heavy filled non-primary buttons). Would touch Director.tsx, DirectorSession.tsx, DirectorPoolPlayoff.tsx, DirectorPlayers.tsx, PlayerDashboard.tsx, Login.tsx, Claim.tsx, Players.tsx.
 
 ### Automated tests
 There are currently no automated tests. Backend logic is verified via the FastAPI docs UI (`/docs`) and manual scripts in `scripts/`. Before pushing, always run `npm run build` in `frontend/` to catch TypeScript errors.

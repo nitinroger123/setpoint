@@ -71,17 +71,19 @@ function SetScoreDisplay({ game, teamMap }: { game: PoolGame | PlayInGame; teamM
     { a: 'set3_score_a' in game ? (game as any).set3_score_a : null, b: 'set3_score_b' in game ? (game as any).set3_score_b : null },
   ].filter(s => s.a !== null && s.b !== null)
 
-  const isScored = game.winner_id !== null
+  // A game is scored if any set has been entered; winner_id is null for split matches
+  const isScored = sets.length > 0
+  const isSplit  = isScored && game.winner_id === null
 
   return (
     <div className="border rounded-xl p-4 bg-white">
       <div className="flex items-center gap-2 mb-2">
-        <span className={`flex-1 text-center text-sm font-semibold px-2 py-1 rounded-lg ${game.winner_id === game.team_a_id && isScored ? 'bg-green-100 text-green-700' : 'bg-gray-50 text-gray-700'}`}>
-          {teamA} {game.winner_id === game.team_a_id ? '✓' : ''}
+        <span className={`flex-1 text-center text-sm font-semibold px-2 py-1 rounded-lg ${game.winner_id === game.team_a_id ? 'bg-green-100 text-green-700' : 'bg-gray-50 text-gray-700'}`}>
+          {game.winner_id === game.team_a_id ? '✓ ' : ''}{teamA}
         </span>
-        <span className="text-gray-400 text-xs">vs</span>
-        <span className={`flex-1 text-center text-sm font-semibold px-2 py-1 rounded-lg ${game.winner_id === game.team_b_id && isScored ? 'bg-green-100 text-green-700' : 'bg-gray-50 text-gray-700'}`}>
-          {game.winner_id === game.team_b_id ? '✓' : ''} {teamB}
+        <span className="text-gray-400 text-xs">{isSplit ? <span className="text-amber-600 font-semibold">Split</span> : 'vs'}</span>
+        <span className={`flex-1 text-center text-sm font-semibold px-2 py-1 rounded-lg ${game.winner_id === game.team_b_id ? 'bg-green-100 text-green-700' : 'bg-gray-50 text-gray-700'}`}>
+          {game.winner_id === game.team_b_id ? '✓ ' : ''}{teamB}
         </span>
       </div>
       {sets.length > 0 ? (

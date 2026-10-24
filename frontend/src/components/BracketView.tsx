@@ -15,40 +15,34 @@ interface Props {
 }
 
 /**
- * TeamSlot renders one side of a bracket matchup with an optional score.
+ * TeamSlot renders one side of a bracket matchup (name only; scores shown below).
  */
 function TeamSlot({
   teamId,
   teamMap,
-  score,
   isWinner,
 }: {
   teamId: string | null
   teamMap: Record<string, string>
-  score: number | null
   isWinner: boolean
 }) {
   const name = teamId ? (teamMap[teamId] ?? 'TBD') : 'TBD'
   return (
     <div
-      className={`flex items-center justify-between px-2.5 py-1.5 text-sm rounded ${
+      className={`flex items-center px-2.5 py-1.5 text-sm rounded ${
         isWinner
           ? 'bg-green-50 font-semibold text-green-700'
           : 'bg-white text-gray-700'
       } ${!teamId ? 'text-gray-400 italic' : ''}`}
     >
-      <span className="truncate max-w-[120px]">{name}</span>
-      {score !== null && (
-        <span className={`ml-2 font-bold tabular-nums ${isWinner ? 'text-green-700' : 'text-gray-400'}`}>
-          {score}
-        </span>
-      )}
+      {isWinner && <span className="mr-1.5 text-green-600 text-xs">✓</span>}
+      <span className="truncate max-w-[140px]">{name}</span>
     </div>
   )
 }
 
 /**
- * BracketCard renders one game as a small card with two team slots.
+ * BracketCard renders one game as a small card with two team slots and per-set scores.
  */
 function BracketCard({
   game,
@@ -59,16 +53,12 @@ function BracketCard({
   teamMap: Record<string, string>
   roundLabel: string
 }) {
-  // Compute total score per team by summing sets
-  const scoreA =
-    (game.set1_score_a ?? 0) + (game.set2_score_a ?? 0) + (game.set3_score_a ?? 0) > 0 ||
-    game.set1_score_a !== null
-      ? (game.set1_score_a ?? 0) + (game.set2_score_a ?? 0) + (game.set3_score_a ?? 0)
-      : null
-  const scoreB =
-    game.set1_score_b !== null
-      ? (game.set1_score_b ?? 0) + (game.set2_score_b ?? 0) + (game.set3_score_b ?? 0)
-      : null
+  // Build a list of scored sets to display below the team rows
+  const sets = [
+    { a: game.set1_score_a, b: game.set1_score_b },
+    { a: game.set2_score_a, b: game.set2_score_b },
+    { a: game.set3_score_a, b: game.set3_score_b },
+  ].filter(s => s.a !== null && s.b !== null) as { a: number; b: number }[]
 
   const hasScore  = game.winner_id !== null
   const isByeGame = game.is_bye
@@ -83,7 +73,6 @@ function BracketCard({
         <TeamSlot
           teamId={game.team_a_id}
           teamMap={teamMap}
-          score={hasScore ? scoreA : null}
           isWinner={hasScore && game.winner_id === game.team_a_id}
         />
         {isByeGame ? (
@@ -92,11 +81,18 @@ function BracketCard({
           <TeamSlot
             teamId={game.team_b_id}
             teamMap={teamMap}
-            score={hasScore ? scoreB : null}
             isWinner={hasScore && game.winner_id === game.team_b_id}
           />
         )}
       </div>
+      {/* Per-set scores shown below both teams */}
+      {sets.length > 0 && (
+        <div className="flex gap-2 justify-center px-2.5 py-1.5 bg-gray-50 border-t text-xs text-gray-500 font-mono">
+          {sets.map((s, i) => (
+            <span key={i}>{s.a}–{s.b}</span>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
