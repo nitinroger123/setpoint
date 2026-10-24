@@ -394,13 +394,13 @@ export function PlayerSeriesCard({
 
   useEffect(() => {
     const params = group.series_id ? `?series_id=${group.series_id}` : ''
-    Promise.all([
-      api.get(`/api/players/${playerId}/teammate-stats${params}`),
-      api.get(`/api/players/${playerId}/nemesis${params}`),
-    ]).then(([teammateRes, nemesisRes]) => {
-      setTeammates(teammateRes.data)
-      setNemesis(nemesisRes.data.nemesis ?? null)
-    }).catch(() => {})
+    // Fetch independently so a failure in one does not cancel the other
+    api.get(`/api/players/${playerId}/teammate-stats${params}`)
+      .then(res => setTeammates(res.data))
+      .catch(() => {})
+    api.get(`/api/players/${playerId}/nemesis${params}`)
+      .then(res => setNemesis(res.data.nemesis ?? null))
+      .catch(() => {})
   }, [playerId, group.series_id])
 
   return (
