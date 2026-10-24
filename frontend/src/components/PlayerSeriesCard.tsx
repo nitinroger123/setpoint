@@ -332,38 +332,45 @@ function FullTeammateTable({ teammates }: { teammates: TeammateStat[] }) {
 // ── Nemesis card ──────────────────────────────────────────────────────────────
 
 /**
- * Compact display for the single toughest opponent this series.
- * Shows the nemesis player's name (linked), game count, losses, and win rate.
+ * Sortable table of toughest opponents this series (up to 5).
+ * Default sort: win% ascending (hardest opponent first).
  */
-function NemesisCard({ nemesis }: { nemesis: NemesisStat }) {
+function NemesisCard({ nemeses }: { nemeses: NemesisStat[] }) {
+  if (nemeses.length === 0) return null
+  type Row = Record<string, unknown> & NemesisStat
+  const rows = nemeses as Row[]
+  const { sorted, sortKey, sortDir, toggleSort } = useSortable<Row>(rows, 'win_pct', 'asc')
+
   return (
     <div>
       <p className="text-sm font-semibold mb-0.5">Nemesis</p>
-      <p className="text-xs text-gray-400 mb-2">Toughest opponent (min. 3 games)</p>
+      <p className="text-xs text-gray-400 mb-2">Toughest opponents (min. 3 games)</p>
       <div className="border rounded-lg overflow-hidden">
         <table className="w-full text-xs">
           <thead className="bg-red-50 text-red-700 uppercase">
             <tr>
-              <th className="px-3 py-2 text-left">Player</th>
-              <th className="px-3 py-2 text-center">G</th>
-              <th className="px-3 py-2 text-center">L</th>
-              <th className="px-3 py-2 text-center">Win%</th>
+              <SortTh label="Player" colKey="name"    activeSortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="left" />
+              <SortTh label="G"      colKey="games"   activeSortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+              <SortTh label="L"      colKey="losses"  activeSortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+              <SortTh label="Win%"   colKey="win_pct" activeSortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
             </tr>
           </thead>
-          <tbody>
-            <tr className="bg-white">
-              <td className="px-3 py-2 font-medium">
-                <Link
-                  to={`/players/${nemesis.id}`}
-                  className="text-primary underline underline-offset-2 hover:text-primary-lighter"
-                >
-                  {nemesis.name}
-                </Link>
-              </td>
-              <td className="px-3 py-2 text-center text-gray-500">{nemesis.games}</td>
-              <td className="px-3 py-2 text-center font-medium text-red-500">{nemesis.losses}</td>
-              <td className="px-3 py-2 text-center font-medium text-red-500">{nemesis.win_pct}%</td>
-            </tr>
+          <tbody className="divide-y">
+            {sorted.map(n => (
+              <tr key={n.id} className="bg-white hover:bg-cream-light">
+                <td className="px-3 py-2 font-medium">
+                  <Link
+                    to={`/players/${n.id}`}
+                    className="text-primary underline underline-offset-2 hover:text-primary-lighter"
+                  >
+                    {n.name}
+                  </Link>
+                </td>
+                <td className="px-3 py-2 text-center text-gray-500">{n.games}</td>
+                <td className="px-3 py-2 text-center font-medium text-red-500">{n.losses}</td>
+                <td className="px-3 py-2 text-center font-medium text-red-500">{n.win_pct}%</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
@@ -389,7 +396,7 @@ export function PlayerSeriesCard({
   playerId: string
 }) {
   const [teammates, setTeammates] = useState<TeammateData | null>(null)
-  const [nemesis, setNemesis] = useState<NemesisStat | null>(null)
+  const [nemesis, setNemesis] = useState<NemesisStat[]>([])
   const [showFullHistory, setShowFullHistory] = useState(false)
 
   useEffect(() => {
@@ -399,7 +406,7 @@ export function PlayerSeriesCard({
       .then(res => setTeammates(res.data))
       .catch(() => {})
     api.get(`/api/players/${playerId}/nemesis${params}`)
-      .then(res => setNemesis(res.data.nemesis ?? null))
+      .then(res => setNemesis(res.data.nemeses ?? []))
       .catch(() => {})
   }, [playerId, group.series_id])
 
@@ -494,7 +501,7 @@ export function PlayerSeriesCard({
             )}
 
             {/* Nemesis — shown when there are enough head-to-head games */}
-            {nemesis && <NemesisCard nemesis={nemesis} />}
+            {nemesis.length > 0 && <NemesisCard nemeses={nemesis} />}
           </div>
         )}
       </div>

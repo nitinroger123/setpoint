@@ -453,19 +453,20 @@ def get_player_nemesis(player_id: str, series_id: str = Query(default=None)):
             ):
                 process_pool_game(game)
 
-    # ── Step 4: Find the nemesis (min 3 games, lowest win rate) ──────────────
+    # ── Step 4: Find top 5 nemeses (min 3 games, lowest win rate first) ─────
     MIN_GAMES = 3
+    TOP_N = 5
     qualified = [v for v in opponent_stats.values() if v["games"] >= MIN_GAMES]
     if not qualified:
-        return {"nemesis": None}
+        return {"nemeses": []}
 
     for stat in qualified:
         stat["losses"] = stat["games"] - stat["wins"]
         stat["win_pct"] = round(stat["wins"] / stat["games"] * 100, 1)
 
-    # Lowest win%, most losses as tiebreaker
-    nemesis = min(qualified, key=lambda x: (x["win_pct"], -x["losses"]))
-    return {"nemesis": nemesis}
+    # Sort: lowest win% first, most losses as tiebreaker
+    nemeses = sorted(qualified, key=lambda x: (x["win_pct"], -x["losses"]))[:TOP_N]
+    return {"nemeses": nemeses}
 
 
 @router.get("/{player_id}")
