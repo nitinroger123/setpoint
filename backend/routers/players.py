@@ -236,20 +236,28 @@ def get_player_nemesis(player_id: str, series_id: str = Query(default=None)):
     session_ids = [r["session_id"] for r in player_sessions]
 
     # ── Step 2: Split sessions by competition format ──────────────────────────
+    # competition_type_id lives on tournament_series, not sessions — join through.
     # Null competition_type_id or 'round_robin' → round-robin path.
     # Any other value (e.g. 'pool_playoff_single_elim') → pool play path.
     sessions_meta = sb.table("sessions") \
-        .select("id, competition_type_id") \
+        .select("id, tournament_series(competition_type_id)") \
         .in_("id", session_ids) \
         .execute().data
 
+    def get_competition_type(session_row: dict) -> str | None:
+        """Extract competition_type_id by traversing the series FK join."""
+        series = session_row.get("tournament_series")
+        if not series:
+            return None
+        return series.get("competition_type_id")
+
     roundrobin_ids = [
         s["id"] for s in sessions_meta
-        if not s.get("competition_type_id") or s["competition_type_id"] == "round_robin"
+        if not get_competition_type(s) or get_competition_type(s) == "round_robin"
     ]
     poolplay_ids = [
         s["id"] for s in sessions_meta
-        if s.get("competition_type_id") and s["competition_type_id"] != "round_robin"
+        if get_competition_type(s) and get_competition_type(s) != "round_robin"
     ]
 
     # opponent_stats[opp_player_id] = {id, name, games, wins}
