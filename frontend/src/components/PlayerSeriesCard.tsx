@@ -60,6 +60,12 @@ interface NemesisStat {
   win_pct: number
 }
 
+interface OpponentData {
+  nemeses: NemesisStat[]
+  barbecue_chicken: NemesisStat[]
+  all_opponents: NemesisStat[]
+}
+
 type SortDir = 'asc' | 'desc'
 
 // ── Sorting hook ──────────────────────────────────────────────────────────────
@@ -332,48 +338,103 @@ function FullTeammateTable({ teammates }: { teammates: TeammateStat[] }) {
 // ── Nemesis card ──────────────────────────────────────────────────────────────
 
 /**
- * Sortable table of toughest opponents this series (up to 5).
- * Default sort: win% ascending (hardest opponent first).
+ * Reusable opponent row table used by Nemesis, Barbecue Chicken, and full history.
+ * accent controls the highlight color for the win-side stat column.
  */
-function NemesisCard({ nemeses }: { nemeses: NemesisStat[] }) {
-  if (nemeses.length === 0) return null
+function OpponentTable({
+  title,
+  subtitle,
+  opponents,
+  defaultSortKey,
+  defaultSortDir,
+  accentClass,
+  statColKey,
+  statLabel,
+}: {
+  title: string
+  subtitle: string
+  opponents: NemesisStat[]
+  defaultSortKey: string
+  defaultSortDir: SortDir
+  accentClass: string   // e.g. 'text-red-500' or 'text-green-600'
+  statColKey: string    // 'losses' for nemesis, 'wins' for barbecue chicken
+  statLabel: string     // 'L' or 'W'
+}) {
+  if (opponents.length === 0) return null
   type Row = Record<string, unknown> & NemesisStat
-  const rows = nemeses as Row[]
-  const { sorted, sortKey, sortDir, toggleSort } = useSortable<Row>(rows, 'win_pct', 'asc')
+  const rows = opponents as Row[]
+  const { sorted, sortKey, sortDir, toggleSort } = useSortable<Row>(rows, defaultSortKey, defaultSortDir)
 
   return (
     <div>
-      <p className="text-sm font-semibold mb-0.5">Nemesis</p>
-      <p className="text-xs text-gray-400 mb-2">Toughest opponents (min. 3 games)</p>
+      <p className="text-sm font-semibold mb-0.5">{title}</p>
+      <p className="text-xs text-gray-400 mb-2">{subtitle}</p>
       <div className="border rounded-lg overflow-hidden">
         <table className="w-full text-xs">
-          <thead className="bg-red-50 text-red-700 uppercase">
+          <thead className={`uppercase ${accentClass === 'text-red-500' ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
             <tr>
-              <SortTh label="Player" colKey="name"    activeSortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="left" />
-              <SortTh label="G"      colKey="games"   activeSortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-              <SortTh label="L"      colKey="losses"  activeSortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-              <SortTh label="Win%"   colKey="win_pct" activeSortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+              <SortTh label="Player"   colKey="name"        activeSortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="left" />
+              <SortTh label="G"        colKey="games"       activeSortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+              <SortTh label={statLabel} colKey={statColKey} activeSortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+              <SortTh label="Win%"     colKey="win_pct"     activeSortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
             </tr>
           </thead>
           <tbody className="divide-y">
             {sorted.map(n => (
               <tr key={n.id} className="bg-white hover:bg-cream-light">
                 <td className="px-3 py-2 font-medium">
-                  <Link
-                    to={`/players/${n.id}`}
-                    className="text-primary underline underline-offset-2 hover:text-primary-lighter"
-                  >
+                  <Link to={`/players/${n.id}`} className="text-primary underline underline-offset-2 hover:text-primary-lighter">
                     {n.name}
                   </Link>
                 </td>
                 <td className="px-3 py-2 text-center text-gray-500">{n.games}</td>
-                <td className="px-3 py-2 text-center font-medium text-red-500">{n.losses}</td>
-                <td className="px-3 py-2 text-center font-medium text-red-500">{n.win_pct}%</td>
+                <td className={`px-3 py-2 text-center font-medium ${accentClass}`}>{(n as Record<string, unknown>)[statColKey] as number}</td>
+                <td className={`px-3 py-2 text-center font-medium ${accentClass}`}>{n.win_pct}%</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+    </div>
+  )
+}
+
+/**
+ * Full head-to-head history table, shown when expanded. Sortable, default by games desc.
+ */
+function FullOpponentTable({ opponents }: { opponents: NemesisStat[] }) {
+  type Row = Record<string, unknown> & NemesisStat
+  const rows = opponents as Row[]
+  const { sorted, sortKey, sortDir, toggleSort } = useSortable<Row>(rows, 'games', 'desc')
+
+  return (
+    <div className="mt-2 border rounded-lg overflow-hidden">
+      <table className="w-full text-xs">
+        <thead className="bg-primary/5 text-primary uppercase">
+          <tr>
+            <SortTh label="Player" colKey="name"    activeSortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="left" />
+            <SortTh label="Games"  colKey="games"   activeSortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+            <SortTh label="Wins"   colKey="wins"    activeSortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+            <SortTh label="Win%"   colKey="win_pct" activeSortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+          </tr>
+        </thead>
+        <tbody className="divide-y">
+          {sorted.map(n => (
+            <tr key={n.id} className="bg-white hover:bg-cream-light">
+              <td className="px-3 py-2 font-medium">
+                <Link to={`/players/${n.id}`} className="text-primary underline underline-offset-2 hover:text-primary-lighter">
+                  {n.name}
+                </Link>
+              </td>
+              <td className="px-3 py-2 text-center text-gray-500">{n.games}</td>
+              <td className="px-3 py-2 text-center text-gray-600">{n.wins}</td>
+              <td className={`px-3 py-2 text-center font-medium ${n.win_pct >= 50 ? 'text-green-600' : 'text-red-500'}`}>
+                {n.win_pct}%
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }
@@ -396,8 +457,9 @@ export function PlayerSeriesCard({
   playerId: string
 }) {
   const [teammates, setTeammates] = useState<TeammateData | null>(null)
-  const [nemesis, setNemesis] = useState<NemesisStat[]>([])
+  const [opponents, setOpponents] = useState<OpponentData | null>(null)
   const [showFullHistory, setShowFullHistory] = useState(false)
+  const [showFullOpponentHistory, setShowFullOpponentHistory] = useState(false)
 
   useEffect(() => {
     const params = group.series_id ? `?series_id=${group.series_id}` : ''
@@ -406,7 +468,7 @@ export function PlayerSeriesCard({
       .then(res => setTeammates(res.data))
       .catch(() => {})
     api.get(`/api/players/${playerId}/nemesis${params}`)
-      .then(res => setNemesis(res.data.nemeses ?? []))
+      .then(res => setOpponents(res.data))
       .catch(() => {})
   }, [playerId, group.series_id])
 
@@ -462,7 +524,7 @@ export function PlayerSeriesCard({
         </div>
 
         {/* Teammate chemistry + nemesis */}
-        {(teammates || nemesis) && (
+        {(teammates || opponents) && (
           <div className="space-y-4">
             {teammates && (
               <>
@@ -500,8 +562,47 @@ export function PlayerSeriesCard({
               </>
             )}
 
-            {/* Nemesis — shown when there are enough head-to-head games */}
-            {nemesis.length > 0 && <NemesisCard nemeses={nemesis} />}
+            {/* Nemesis + Barbecue Chicken opponent sections */}
+            {opponents && (
+              <>
+                <OpponentTable
+                  title="Nemesis"
+                  subtitle="Toughest opponents (min. 3 games)"
+                  opponents={opponents.nemeses}
+                  defaultSortKey="win_pct"
+                  defaultSortDir="asc"
+                  accentClass="text-red-500"
+                  statColKey="losses"
+                  statLabel="L"
+                />
+
+                {/* Expandable full head-to-head history */}
+                {opponents.all_opponents.length > 0 && (
+                  <div>
+                    <button
+                      onClick={() => setShowFullOpponentHistory(s => !s)}
+                      className="text-xs text-primary underline underline-offset-2 hover:text-primary-lighter transition-colors"
+                    >
+                      {showFullOpponentHistory
+                        ? 'Hide opponent history'
+                        : `View full opponent history (${opponents.all_opponents.length})`}
+                    </button>
+                    {showFullOpponentHistory && <FullOpponentTable opponents={opponents.all_opponents} />}
+                  </div>
+                )}
+
+                <OpponentTable
+                  title="Barbecue Chicken"
+                  subtitle="Opponents you dominate (min. 3 games)"
+                  opponents={opponents.barbecue_chicken}
+                  defaultSortKey="win_pct"
+                  defaultSortDir="desc"
+                  accentClass="text-green-600"
+                  statColKey="wins"
+                  statLabel="W"
+                />
+              </>
+            )}
           </div>
         )}
       </div>

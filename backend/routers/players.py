@@ -453,20 +453,33 @@ def get_player_nemesis(player_id: str, series_id: str = Query(default=None)):
             ):
                 process_pool_game(game)
 
-    # ── Step 4: Find top 5 nemeses (min 3 games, lowest win rate first) ─────
+    # ── Step 4: Compute stats for all opponents, then split into lists ───────
     MIN_GAMES = 3
     TOP_N = 5
-    qualified = [v for v in opponent_stats.values() if v["games"] >= MIN_GAMES]
-    if not qualified:
-        return {"nemeses": []}
 
-    for stat in qualified:
+    # Annotate every opponent regardless of game count (needed for full history)
+    all_opponents = list(opponent_stats.values())
+    for stat in all_opponents:
         stat["losses"] = stat["games"] - stat["wins"]
-        stat["win_pct"] = round(stat["wins"] / stat["games"] * 100, 1)
+        stat["win_pct"] = round(stat["wins"] / stat["games"] * 100, 1) if stat["games"] > 0 else 0.0
 
-    # Sort: lowest win% first, most losses as tiebreaker
+    # Full history: all opponents sorted by most games together
+    all_opponents_sorted = sorted(all_opponents, key=lambda x: (-x["games"], -x["wins"]))
+
+    # Highlights use only opponents with enough head-to-head games
+    qualified = [s for s in all_opponents if s["games"] >= MIN_GAMES]
+
+    # Nemesis: lowest win%, most losses as tiebreaker
     nemeses = sorted(qualified, key=lambda x: (x["win_pct"], -x["losses"]))[:TOP_N]
-    return {"nemeses": nemeses}
+
+    # Barbecue Chicken: highest win%, most wins as tiebreaker
+    barbecue_chicken = sorted(qualified, key=lambda x: (-x["win_pct"], -x["wins"]))[:TOP_N]
+
+    return {
+        "nemeses": nemeses,
+        "barbecue_chicken": barbecue_chicken,
+        "all_opponents": all_opponents_sorted,
+    }
 
 
 @router.get("/{player_id}")
